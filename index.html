@@ -462,7 +462,7 @@
   <div class="issues-page-content">
     <div class="issues-search-bar">
       <div class="issues-search-wrap">
-        <input type="text" id="issues-search-input" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" />
+        <input type="text" id="issues-search-input" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
         <span class="s-icon">🔍</span>
       </div>
       <span class="search-count" id="issues-search-count"></span>
@@ -562,16 +562,16 @@
       <div class="admin-body">
         <div class="upload-panel">
           <h3>📤 Добавить новый выпуск</h3>
-          <div class="form-group"><label>Название выпуска</label><input type="text" id="up-title" placeholder="Например: Весна 2025" /></div>
-          <div class="form-group"><label>Дата выпуска</label><input type="month" id="up-date" /></div>
-          <div class="form-group"><label>Краткое описание (необязательно)</label><textarea id="up-desc" placeholder="Что в этом выпуске?"></textarea></div>
+          <div class="form-group"><label for="up-title">Название выпуска</label><input type="text" id="up-title" placeholder="Например: Весна 2025" /></div>
+          <div class="form-group"><label for="up-date">Дата выпуска</label><input type="month" id="up-date" /></div>
+          <div class="form-group"><label for="up-desc">Краткое описание (необязательно)</label><textarea id="up-desc" placeholder="Что в этом выпуске?"></textarea></div>
           <div class="form-group">
-            <label>Ссылка на PDF <span style="color:var(--gray);font-weight:400;">(Google Drive)</span></label>
+            <label for="up-pdf-url">Ссылка на PDF <span style="color:var(--gray);font-weight:400;">(Google Drive)</span></label>
             <input type="url" id="up-pdf-url" placeholder="https://drive.google.com/file/d/..." />
             <div class="url-hint">📌 В Google Drive: правая кнопка → «Открыть доступ» → «Все у кого есть ссылка» → скопировать</div>
           </div>
           <div class="form-group">
-            <label>Ссылка на обложку <span style="color:var(--gray);font-weight:400;">(необязательно)</span></label>
+            <label for="up-cover-url">Ссылка на обложку <span style="color:var(--gray);font-weight:400;">(необязательно)</span></label>
             <input type="url" id="up-cover-url" placeholder="https://drive.google.com/file/d/..." />
             <div id="cover-url-preview-wrap" style="display:none; margin-top:10px; text-align:center;">
               <img id="cover-url-preview" src="" style="max-height:160px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); border:1px solid var(--border);" onerror="this.parentElement.style.display='none'" />
@@ -596,12 +596,12 @@
   <div style="background:white; border-radius:18px; width:100%; max-width:480px; padding:36px; position:relative; box-shadow:0 24px 60px rgba(0,0,0,0.2); margin:auto;">
     <h3 style="font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700; color:var(--navy); margin-bottom:6px;">✏️ Редактировать выпуск</h3>
     <p style="color:var(--gray); font-size:0.85rem; margin-bottom:24px;" id="edit-subtitle">Изменить данные выпуска</p>
-    <div class="form-group"><label>Название выпуска</label><input type="text" id="edit-title" placeholder="Название" /></div>
-    <div class="form-group"><label>Дата выпуска</label><input type="month" id="edit-date" /></div>
-    <div class="form-group"><label>Описание</label><textarea id="edit-desc" placeholder="Краткое описание"></textarea></div>
-    <div class="form-group"><label>Ссылка на PDF <span style="color:var(--gray);font-weight:400;">(оставьте пустым чтобы не менять)</span></label><input type="url" id="edit-pdf-url" placeholder="https://drive.google.com/file/d/..." /></div>
+    <div class="form-group"><label for="edit-title">Название выпуска</label><input type="text" id="edit-title" placeholder="Название" /></div>
+    <div class="form-group"><label for="edit-date">Дата выпуска</label><input type="month" id="edit-date" /></div>
+    <div class="form-group"><label for="edit-desc">Описание</label><textarea id="edit-desc" placeholder="Краткое описание"></textarea></div>
+    <div class="form-group"><label for="edit-pdf-url">Ссылка на PDF <span style="color:var(--gray);font-weight:400;">(оставьте пустым чтобы не менять)</span></label><input type="url" id="edit-pdf-url" placeholder="https://drive.google.com/file/d/..." /></div>
     <div class="form-group">
-      <label>Ссылка на обложку <span style="color:var(--gray);font-weight:400;">(необязательно)</span></label>
+      <label for="edit-cover-url">Ссылка на обложку <span style="color:var(--gray);font-weight:400;">(необязательно)</span></label>
       <input type="url" id="edit-cover-url" placeholder="https://drive.google.com/file/d/..." />
       <div id="edit-cover-preview-wrap" style="display:none; margin-top:10px; text-align:center;">
         <img id="edit-cover-preview" src="" style="max-height:140px; border-radius:8px; border:1px solid var(--border);" onerror="this.parentElement.style.display='none'" />
@@ -728,7 +728,7 @@
       read_btn: 'Читать выпуск →', read_btn_small: 'Читать →',
       badge_latest: '✦ Последний выпуск',
       search_no_results: 'Ничего не найдено', search_no_results_sub: 'Попробуйте другой запрос',
-      search_found: 'найдено выпусков',
+      search_found: 'Найдено',
       pdf_loading: 'Открываем PDF...',
       fs_enter: '⛶ На весь экран', fs_exit: '✕ Выйти из полноэкрана',
       footer_admin: 'Вход для редакции', open_in_drive: 'Открыть в Google Диске ↗',
@@ -769,7 +769,7 @@
       read_btn: 'Read Issue →', read_btn_small: 'Read →',
       badge_latest: '✦ Latest Issue',
       search_no_results: 'Nothing found', search_no_results_sub: 'Try a different search',
-      search_found: 'issues found',
+      search_found: 'Found',
       pdf_loading: 'Opening PDF...',
       fs_enter: '⛶ Fullscreen', fs_exit: '✕ Exit Fullscreen',
       footer_admin: 'Editors’ login', open_in_drive: 'Open in Google Drive ↗',
@@ -1004,7 +1004,7 @@
     grid.style.display = 'grid';
     searchEmpty.style.display = 'none';
     grid.innerHTML = list.map((iss, i) => issueCard(iss, i)).join('');
-    count.textContent = q ? `${list.length} ${tr('search_found')}` : '';
+    count.textContent = q ? `${tr('search_found')}: ${list.length}` : '';
   }
 
   document.getElementById('issues-search-input').addEventListener('input', e => filterIssues(e.target.value));
