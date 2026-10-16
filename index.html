@@ -363,7 +363,7 @@
   </div>
 
   <div class="nav-search-wrap">
-    <input class="nav-search-input" id="nav-search-input" type="search" enterkeyhint="search" placeholder="Поиск..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
+    <input class="nav-search-input" id="nav-search-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Поиск..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
     <span class="nav-search-icon" aria-hidden="true">🔍</span>
   </div>
 
@@ -384,7 +384,7 @@
   <button type="button" class="mobile-link" data-page="issues" onclick="showPage('issues')" data-i18n="nav_issues">Все выпуски</button>
   <button type="button" class="mobile-link" data-page="about" onclick="showPage('about')" data-i18n="nav_about">О нас</button>
   <div class="mobile-search">
-    <input type="search" id="mobile-search-input" enterkeyhint="search" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
+    <input type="search" id="mobile-search-input" autocomplete="off" enterkeyhint="search" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
   </div>
 </div>
 
@@ -462,7 +462,7 @@
   <div class="issues-page-content">
     <div class="issues-search-bar">
       <div class="issues-search-wrap">
-        <input type="text" id="issues-search-input" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
+        <input type="text" id="issues-search-input" autocomplete="off" placeholder="Поиск по выпускам..." data-i18n-ph="search_placeholder" aria-label="Поиск по выпускам" data-i18n-aria="search_label" />
         <span class="s-icon">🔍</span>
       </div>
       <span class="search-count" id="issues-search-count"></span>
@@ -518,7 +518,7 @@
         <p>Войдите, чтобы управлять и загружать выпуски журнала.</p>
         <div class="form-group">
           <label for="login-user">Email</label>
-          <input type="email" id="login-user" placeholder="Введите email" autocomplete="email" />
+          <input type="email" id="login-user" placeholder="Введите email" autocomplete="username" />
         </div>
         <div class="form-group">
           <label for="login-pass">Пароль</label>
@@ -671,13 +671,13 @@
   // ─── ОБЪЯВЛЕНИЕ (плашка вверху страницы) ─────────────────
   // Чтобы показать: enabled: true, заполнить текст и даты, загрузить index.html на GitHub.
   const ANNOUNCEMENT = {
-    enabled: false,
+    enabled: true,
     from: '2026-10-16',   // первый день показа, ГГГГ-ММ-ДД
     until: '2026-10-31',  // последний день показа
     where: 'all',         // 'all' на всех страницах, 'home' только на главной
-    link: '',             // ссылка для кнопки, https://...; пусто = без кнопки
-    ru: { title: '', text: '', button: '' },
-    en: { title: '', text: '', button: '' },
+    link: 'https://drive.google.com/file/d/1-NGpdotq6chwGty0tU-z_zsjYlbm5yU2/view', // ссылка для кнопки, https://...; пусто = без кнопки
+    ru: { title: 'Вышел десятый номер «Тритона».', text: 'Журналу пять лет. Читайте юбилейный выпуск о сотрудничестве.', button: 'Читать' },
+    en: { title: 'Triton issue 10 is out.', text: 'The magazine turns five. Read the anniversary issue on collaboration.', button: 'Read' },
   };
 
   // Restore auth state on load
