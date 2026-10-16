@@ -322,7 +322,13 @@ async function loadList() {
   let d;
   try {
     d = await A.loadIssues();
-    if (!d.live) throw d.error || new Error('база недоступна');
+    if (!d.live) {
+      // Связь с базой могла оборваться на секунду: пробуем ещё раз, прежде чем показать ошибку.
+      await new Promise((r) => setTimeout(r, 1500));
+      A.invalidateIssues();
+      d = await A.loadIssues();
+      if (!d.live) throw d.error || new Error('база недоступна');
+    }
   } catch (e) {
     A.invalidateIssues();
     if (!$('alist')) return;

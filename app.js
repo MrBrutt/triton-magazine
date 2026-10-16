@@ -302,23 +302,51 @@ function normalize(raw) {
   return list;
 }
 
-let issuesP = null;
+let issuesP = null, retrying = false;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const same = (a, b) => JSON.stringify(a.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color])) === JSON.stringify(b.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color]));
+
+/* Берём выпуски именно с сервера: если связь оборвалась, SDK иначе молча вернёт пустой кэш. */
+async function fetchLive() {
+  const { m, db } = await firestore();
+  const q = m.query(m.collection(db, 'issues'), m.orderBy('uploadedAt', 'asc'));
+  const snap = await withTimeout((m.getDocsFromServer || m.getDocs)(q), 9000);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
 function loadIssues() {
   if (!issuesP) {
     issuesP = (async () => {
       try {
-        const { m, db } = await firestore();
-        const snap = await withTimeout(m.getDocs(m.query(m.collection(db, 'issues'), m.orderBy('uploadedAt', 'asc'))), 9000);
-        return { list: normalize(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), live: true };
+        return { list: normalize(await fetchLive()), live: true };
       } catch (error) {
-        console.warn('[Тритон] база недоступна, показываю сохранённую копию выпусков', error);
+        console.warn('[Тритон] база не ответила, показываю сохранённую копию выпусков', error);
         const r = await fetch('/data/issues.json' + (V ? '?v=' + V : ''));
         if (!r.ok) throw error;
-        return { list: normalize(await r.json()), live: false, error };
+        const res = { list: normalize(await r.json()), live: false, error };
+        retryLive(res.list);
+        return res;
       }
     })().catch((e) => { issuesP = null; throw e; });
   }
   return issuesP;
+}
+/* Пока показана копия, тихо пробуем достучаться до базы ещё раз; если данные отличаются, перерисовываем. */
+async function retryLive(shown) {
+  if (retrying) return;
+  retrying = true;
+  for (const wait of [2500, 6000, 15000]) {
+    await sleep(wait);
+    try {
+      const list = normalize(await fetchLive());
+      issuesP = Promise.resolve({ list, live: true });
+      if (!same(list, shown) && current && current.name !== 'admin' && !(document.activeElement instanceof HTMLInputElement)) {
+        current = null;
+        render({ keepScroll: window.scrollY });
+      }
+      break;
+    } catch (e) { /* следующая попытка */ }
+  }
+  retrying = false;
 }
 function invalidateIssues() { issuesP = null; }
 
