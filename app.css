@@ -24,6 +24,8 @@ body{margin:0;background:#FFFFFF;color:var(--ink);font:400 18px/1.55 var(--body)
 h1,h2,h3,p,figure,blockquote,ul,ol,dl,dd,fieldset{margin:0}
 ul,ol{padding:0}
 img{max-width:100%}
+picture{display:contents}
+.pre-hide main[data-pre]{visibility:hidden}
 a{color:var(--ink)}
 a:hover{color:var(--violet)}
 button{font:inherit;color:inherit}
@@ -329,6 +331,13 @@ select.fld{-webkit-appearance:none;appearance:none;padding-right:40px;background
 .toast{position:fixed;left:50%;bottom:24px;z-index:70;max-width:calc(100% - 32px);padding:14px 20px;background:var(--ink);color:#FFFFFF;font-weight:500;font-size:16px;line-height:1.4;opacity:0;transform:translate(-50%,12px);pointer-events:none;transition:opacity .2s,transform .2s}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .toast.err{background:var(--danger)}
+/* Плашка о cookies: поверх страницы, под читалкой (.rdr z-index 50) и тостом */
+.cookie{position:fixed;left:16px;right:16px;bottom:16px;z-index:40;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px 20px;padding:12px 12px 12px 20px;background:var(--ink);color:#FFFFFF;font-size:15px;line-height:1.4;box-shadow:6px 6px 0 rgba(47,59,64,.25)}
+.cookie[hidden]{display:none}
+.cookie-t{flex:1 1 auto;min-width:0}
+.cookie-b{flex:0 0 auto;min-height:44px;padding:0 18px;border:0;background:#FFFFFF;color:var(--ink);font:600 15px var(--body);cursor:pointer}
+.cookie-b:hover{background:var(--mist)}
+.cookie :focus-visible{outline-color:#FFFFFF}
 
 /* ---------- планшет ---------- */
 @media (max-width:1000px){

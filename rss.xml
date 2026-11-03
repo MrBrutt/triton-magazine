@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Тритон</title>
+    <link>https://triton-skolkovo.ru/</link>
+    <description>Журнал студентов Международной гимназии Сколково: новые номера.</description>
+    <language>ru</language>
+    <lastBuildDate>Fri, 16 Oct 2026 08:15:53 +0000</lastBuildDate>
+    <atom:link href="https://triton-skolkovo.ru/rss.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>https://triton-skolkovo.ru/og-image.png</url>
+      <title>Тритон</title>
+      <link>https://triton-skolkovo.ru/</link>
+    </image>
+    <item>
+      <title>№10. Сотрудничество — условие прогресса</title>
+      <link>https://triton-skolkovo.ru/issues/10/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/10/</guid>
+      <pubDate>Wed, 01 Jul 2026 12:00:00 +0300</pubDate>
+      <description>«Тритону» пять лет, и десятый номер редакция посвятила сотрудничеству. Студенты с учителем написали пьесу «Литературные герои на приёме у психолога»: вы начнёте выпуск с её фрагмента. В номере вы найдёте интервью с бизнес-тренером о коммуникации, «Вязаные истории», статью об умных очках Xvision и тексты о международности.</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/10.jpg" length="81003" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№9. Когда учится машина</title>
+      <link>https://triton-skolkovo.ru/issues/9/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/9/</guid>
+      <pubDate>Thu, 01 Jan 2026 12:00:00 +0300</pubDate>
+      <description>Выпуск №9 исследует, как искусственный интеллект входит в образовательную среду и меняет сам процесс мышления: от интервью с экспертами и школьных экспериментов до личных размышлений о границе между человеческим и машинным разумом. Номер показывает, как технологии становятся не помощником, а соучастником обучения. 
+
+Открой выпуск — и посмотри, как учёба меняется, когда в неё входит искусственный интеллект</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/9.jpg" length="77859" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№8. Точка</title>
+      <link>https://triton-skolkovo.ru/issues/8/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/8/</guid>
+      <pubDate>Sun, 01 Jun 2025 12:00:00 +0300</pubDate>
+      <description>Восьмой выпуск исследует точку как момент выбора и начала перемен: от цифрового доверия и инвестиций до науки, искусства и личных историй взросления. Это номер о решениях, после которых мышление, траектории и взгляды уже не остаются прежними. 
+
+Открой выпуск — и посмотри, что начинается после точки</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/8.jpg" length="134030" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№7. 10 лет силы знаний</title>
+      <link>https://triton-skolkovo.ru/issues/7/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/7/</guid>
+      <pubDate>Wed, 01 Jan 2025 12:00:00 +0300</pubDate>
+      <description>Юбилейный выпуск к 10-летию Гимназии объединяет главное, что формирует её среду: интервью с преподавателями, научные достижения студентов, творческие тексты и исследования школьной жизни. Номер показывает гимназию как пространство роста, идей и сильных траекторий. 
+
+Открой юбилейный выпуск — и посмотри, как выглядит среда, в которой формируют будущее</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/7.jpg" length="81159" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№6. Ценность времени</title>
+      <link>https://triton-skolkovo.ru/issues/6/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/6/</guid>
+      <pubDate>Sat, 01 Jun 2024 12:00:00 +0300</pubDate>
+      <description>Выпуск №6 посвящён тому, как мы ощущаем, тратим и понимаем время: от философских размышлений и исследований до художественных историй и приключений. Внутри — тексты о дружбе и памяти, сказки о часах и духе времени, интервью, поэзия и подборки книг и фильмов, которые заставляют иначе взглянуть на каждую минуту. 
+
+Открой выпуск и проверь, как ты распоряжаешься своим временем — возможно, после него ты начнёшь ценить его совсем по-другому</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/6.jpg" length="103679" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№5. Культурный код: миры, истории, открытия</title>
+      <link>https://triton-skolkovo.ru/issues/5/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/5/</guid>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 +0300</pubDate>
+      <description>Пятый выпуск объединяет творчество, науку и культурные сюжеты: от сказок о Ван-сяу и драконе Баоцзанге до путевых заметок о Китае, школьных эссе, интервью и авторских изобретений. Номер раскрывает тему культурного кода через истории, опыт и воображение учеников. 
+
+Открой выпуск и погрузись в мир идей, культур и историй, созданных голосами нового поколения</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/5.jpg" length="77049" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№4. Истоки</title>
+      <link>https://triton-skolkovo.ru/issues/4/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/4/</guid>
+      <pubDate>Thu, 01 Jun 2023 12:00:00 +0300</pubDate>
+      <description>Четвёртый выпуск — о памяти, опыте и людях, которые нас формируют. В номере: истории о семье и поколениях, интервью с учителем, школьное закулисье, путешествия, рассказы, поэзия и фотопроекты — живой срез ученической жизни и творчества.
+
+Открой выпуск — и проживи эти истории вместе с нами</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/4.jpg" length="69242" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№3. Пируэт событий</title>
+      <link>https://triton-skolkovo.ru/issues/3/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/3/</guid>
+      <pubDate>Sun, 01 Jan 2023 12:00:00 +0300</pubDate>
+      <description>Истории людей, которые уже в движении: от балета и искусства до науки, космоса и технологических открытий. Выпуск о выборе направления, дисциплине и шагах, которые формируют личную и профессиональную траекторию.
+
+Открой выпуск и посмотри, куда ведут их решения</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/3.jpg" length="127145" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№2. Лед, до встречи!</title>
+      <link>https://triton-skolkovo.ru/issues/2/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/2/</guid>
+      <pubDate>Tue, 01 Feb 2022 12:00:00 +0300</pubDate>
+      <description>Второй выпуск «Тритона» расширяет тематический диапазон журнала — от культуры и искусства до интервью и школьной жизни, собирая разные голоса и взгляды внутри редакционного пространства.
+
+Открой выпуск и посмотри, чем живёт редакция сегодня!</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/2.jpg" length="80966" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>№1. Путь</title>
+      <link>https://triton-skolkovo.ru/issues/1/</link>
+      <guid isPermaLink="true">https://triton-skolkovo.ru/issues/1/</guid>
+      <pubDate>Fri, 01 Oct 2021 12:00:00 +0300</pubDate>
+      <description>Перед вами — первый выпуск журнала «Тритон» и отправная точка большого редакционного проекта. Тема номера — путь: личный, учебный, творческий — первые шаги авторов, их мысли и открытия. Прочитай и пойми, с чего начинался самый первый выпуск</description>
+      <enclosure url="https://triton-skolkovo.ru/covers/1.jpg" length="72867" type="image/jpeg"/>
+    </item>
+  </channel>
+</rss>

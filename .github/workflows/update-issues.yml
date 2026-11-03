@@ -1,0 +1,83 @@
+name: Обновление выпусков из базы
+
+# Раз в сутки (и по кнопке) берёт выпуски из Firestore, пересобирает страницы и, если что-то
+# изменилось, коммитит в main. Базу только читает: tools/fetch_issues.py, REST без входа.
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 03:17 UTC = 06:17 по Москве
+  workflow_dispatch:
+
+permissions:
+  contents: write   # коммит в main
+  pages: write      # запуск сборки GitHub Pages
+
+concurrency:
+  group: update-issues
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # Только main: ручной запуск из другой ветки ничего не делает.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install Pillow
+      - name: Выпуски из базы
+        run: python3 tools/fetch_issues.py
+      - name: Страницы
+        run: python3 tools/build_pages.py
+      # Коммиты от GITHUB_TOKEN не запускают tests.yml, поэтому до пуша проверяем главное на новых данных:
+      # готовая вёрстка совпадает с app.js на всех страницах. Остальные тесты ждут текущие тексты номеров.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Вёрстка совпадает с app.js
+        run: npx playwright test tests/prerender.spec.js -g "готовая страница" --project=desktop
+      - name: Коммит в main
+        id: commit
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Ничего не изменилось."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Выпуски из базы: обновлены data/issues.json и страницы'
+          # Если за время работы в main что-то влили, переносим коммит поверх и пробуем ещё раз.
+          git push origin HEAD:main || { git pull --rebase origin main && python3 tools/build_pages.py && git diff --quiet && git push origin HEAD:main; }
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      # Коммит через GITHUB_TOKEN не запускает сборку Pages сам, поэтому просим её явно.
+      - name: Сборка GitHub Pages
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
+      # GitHub выключает расписание в публичном репозитории после 60 дней без активности, а номера выходят
+      # дважды в год. Если последний коммит в main старше 50 дней, пушим пустой коммит. Шаг работает и тогда,
+      # когда данные не изменились или прошлые шаги упали (например, база не ответила).
+      - name: Не дать расписанию выключиться
+        if: ${{ !cancelled() }}
+        run: |
+          git fetch -q origin main
+          last=$(git log -1 --format=%ct origin/main)
+          age=$(( ($(date +%s) - last) / 86400 ))
+          echo "Последний коммит в main: $age дн. назад."
+          if [ "$age" -lt 50 ]; then exit 0; fi
+          git worktree add -q --detach "$RUNNER_TEMP/keepalive" origin/main
+          cd "$RUNNER_TEMP/keepalive"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -q --allow-empty -m "Автообновление: пустой коммит, чтобы GitHub не выключил расписание (в main $age дн. без коммитов)"
+          git push origin HEAD:main

@@ -9,16 +9,22 @@
 <meta name="theme-color" content="#B4C7B6">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Тритон: новые номера" href="/rss.xml">
 <link rel="preload" href="/fonts/golos-text-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/montserrat-cyrillic-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/montserrat-cyrillic-900-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-<link rel="stylesheet" href="/app.css?v=4f04edffc3">
-<script type="module" src="/app.js?v=4f04edffc3"></script>
+<link rel="stylesheet" href="/app.css?v=6f182a3fbc">
+<script type="module" src="/app.js?v=6f182a3fbc"></script>
+<script>if(/^\/issues\/\d{1,4}(\/read)?\/?$/.test(location.pathname))document.documentElement.classList.add('pre-hide')</script>
 </head>
 <body>
-<div id="app"><noscript><div class="wrap" style="padding:32px 20px 48px"><h1>Страница не найдена</h1><p><a href="/">На главную</a></p></div></noscript></div>
+<div id="app" data-kind="public"><a class="skip" href="#main">Перейти к содержанию</a><div id="ann"></div><header class="hdr" id="hdr"><div class="wrap">
+<a class="mark" href="/" aria-label="Тритон, на главную">тритон</a>
+<nav class="nav" aria-label="Разделы сайта"><a href="/issues/">Выпуски</a><a href="/about/">О журнале</a><a href="/about/#join">Как попасть в редакцию</a></nav>
+<div class="langs" role="group" aria-label="Язык сайта"><button type="button" data-lang="ru" lang="ru" aria-pressed="true">RU</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
+<div class="hdr-m"><button type="button" class="hdr-lang" data-lang="en" aria-label="Switch to English">EN</button><button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Открыть меню"><svg width="20" height="14" viewBox="0 0 20 14" fill="none" aria-hidden="true"><path d="M0 1h20M0 7h20M0 13h20" stroke="currentColor" stroke-width="2"/></svg></button></div>
+</div></header><div class="menu" id="menu" hidden><div class="wrap"><nav aria-label="Разделы сайта"><ul role="list"><li><a href="/issues/">Выпуски</a></li><li><a href="/about/">О журнале</a></li><li><a href="/about/#join">Как попасть в редакцию</a></li></ul></nav></div></div><main id="main" tabindex="-1" data-pre="notfound"><section class="nf"><div class="wrap"><h1 class="h1big" tabindex="-1">Страница не найдена</h1><p>Возможно, в ссылке опечатка или страница переехала.</p><div class="acts"><a class="btn" href="/">На главную</a><a class="btn btn-o" href="/issues/">Все выпуски</a></div></div></section></main><footer class="ftr" id="ftr"><div class="wrap"><span>Журнал студентов Международной гимназии Сколково, 2021–2026</span><a href="/admin/">Вход для редакции</a></div></footer></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

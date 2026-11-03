@@ -1,8 +1,17 @@
 /* «Тритон», журнал студентов Международной гимназии Сколково.
    Один модуль на весь публичный сайт: данные, адреса страниц, страницы, читалка.
    Админка лежит в admin.js и загружается только на /admin/.
-   Firebase подгружается по требованию: если он недоступен, сайт показывает
-   сохранённую копию выпусков из /data/issues.json. */
+
+   Как страница появляется на экране:
+   1. В HTML уже лежит готовая страница: её собирает tools/build_pages.py из /data/issues.json
+      по тем же шаблонам, что и здесь (шаблоны в двух местах, их совпадение проверяет тест).
+   2. app.js берёт ту же сохранённую копию /data/issues.json и рисует страницу заново.
+      Разметка совпадает, поэтому DOM не трогается (см. setHtml) и ничего не прыгает.
+   3. Следом выпуски читаются из базы через REST Firestore, без SDK. Если в базе что-то
+      поменялось, страница перерисовывается.
+   SDK Firebase (gstatic) подгружается только в админке: для входа и записи. */
+
+/* Константы ниже в строгом JSON: build_pages.py читает их прямо из этого файла. */
 
 const V = new URL(import.meta.url).searchParams.get('v') || '';
 const FB = 'https://www.gstatic.com/firebasejs/10.8.0/';
@@ -18,53 +27,53 @@ const TG_URL = 'https://t.me/god_fa1her';
 
 /* Цвета шапки. Админка предлагает только их. */
 const PALETTE = [
-  { hex: '#B4C7B6', name: 'Шалфей' },
-  { hex: '#C1D3AD', name: 'Олива' },
-  { hex: '#92B0B1', name: 'Бирюза' },
-  { hex: '#D2D2CF', name: 'Туман' },
-  { hex: '#E3D3B5', name: 'Песок' },
-  { hex: '#CFC6DE', name: 'Сирень' },
+  { "hex": "#B4C7B6", "name": "Шалфей" },
+  { "hex": "#C1D3AD", "name": "Олива" },
+  { "hex": "#92B0B1", "name": "Бирюза" },
+  { "hex": "#D2D2CF", "name": "Туман" },
+  { "hex": "#E3D3B5", "name": "Песок" },
+  { "hex": "#CFC6DE", "name": "Сирень" }
 ];
-const DEFAULT_COLOR = '#B4C7B6';
+const DEFAULT_COLOR = "#B4C7B6";
 
 /* Обложки, сохранённые на сайте: id файла в Google Диске -> /covers/N.jpg.
    Новые номера берут обложку из Диска. */
 const LOCAL_COVERS = {
-  '1q4ybub4LO-Cqy_5PJyrS2reoO5VeUFkm': 1,
-  '1Zacug5Taw20GGVhntOtbSHIFt22NlNHE': 2,
-  '1cZ7jrh5gtv4jGQMC0QckDefPCF5gm_Qv': 3,
-  '14GaaZcGd2qztU3fUeHjAMMaUJVBu81oL': 4,
-  '1I5yvXGNc2uhDFQsbx74moljKLNNnCYtP': 5,
-  '1BzC1aZYFLz-v4TD17lNLyjmzxfTpO3KF': 6,
-  '1ip07GGvqDtVPy7-h8Y7dXvYlagz3x2Bd': 7,
-  '1R9LgMklIw55NrHAaYL7loAqdV81IgKZS': 8,
-  '1URlL9_pE_uklQT_aiWvkodW7VYmDyzG1': 9,
-  '1-NGpdotq6chwGty0tU-z_zsjYlbm5yU2': 10,
+  "1q4ybub4LO-Cqy_5PJyrS2reoO5VeUFkm": 1,
+  "1Zacug5Taw20GGVhntOtbSHIFt22NlNHE": 2,
+  "1cZ7jrh5gtv4jGQMC0QckDefPCF5gm_Qv": 3,
+  "14GaaZcGd2qztU3fUeHjAMMaUJVBu81oL": 4,
+  "1I5yvXGNc2uhDFQsbx74moljKLNNnCYtP": 5,
+  "1BzC1aZYFLz-v4TD17lNLyjmzxfTpO3KF": 6,
+  "1ip07GGvqDtVPy7-h8Y7dXvYlagz3x2Bd": 7,
+  "1R9LgMklIw55NrHAaYL7loAqdV81IgKZS": 8,
+  "1URlL9_pE_uklQT_aiWvkodW7VYmDyzG1": 9,
+  "1-NGpdotq6chwGty0tU-z_zsjYlbm5yU2": 10
 };
 
 /* Значения по умолчанию для номеров, у которых этих полей нет в базе.
    Если поле заполнено в админке, берётся значение из базы. */
 const DEFAULTS = {
-  1: { color: '#E3D3B5' }, 2: { color: '#CFC6DE' }, 3: { color: '#E3D3B5' },
-  4: { color: '#92B0B1' }, 5: { color: '#E3D3B5' }, 6: { color: '#D2D2CF' },
-  7: { color: '#92B0B1' }, 8: { color: '#C1D3AD' }, 9: { color: '#D2D2CF' },
-  10: {
-    color: '#B4C7B6',
-    toc: '7 Литературные герои на приёме у психолога\n12 Можно ли переделать человека?\n14 Вязаные истории\n29 Умные очки Xvision\n31 Международности быть!\n37 «А по Разъезжей бродит Достоевский»',
-    quote: 'Тритон растет вместе со студентами, и его жизнь неразрывно связана с жизнью Гимназии',
-    quoteBy: 'Умар Гаджикулиев, главный редактор. Из слова редактора',
-    title_en: 'Collaboration: a condition for progress',
-    desc_en: 'Triton turns five, and the editors devoted the tenth issue to collaboration. Students and a teacher wrote a play, “Literary Characters at the Psychologist’s”, and the issue opens with an excerpt from it. Inside: an interview with a business coach about communication, “Knitted Stories”, an article about Xvision smart glasses and pieces on international life.',
-    quote_en: 'Triton grows together with the students, and its life is inseparable from the life of the Gymnasium',
-    quoteBy_en: 'Umar Gadzhikuliev, editor-in-chief. From the editor’s letter',
-    coverAlt: 'Обложка №10: сова и тритон за столом, между ними свеча в форме цифры 5',
-    coverAlt_en: 'Cover of issue 10: an owl and a newt at a table with a candle shaped like the number 5',
-  },
+  "1": { "color": "#E3D3B5" }, "2": { "color": "#CFC6DE" }, "3": { "color": "#E3D3B5" },
+  "4": { "color": "#92B0B1" }, "5": { "color": "#E3D3B5" }, "6": { "color": "#D2D2CF" },
+  "7": { "color": "#92B0B1" }, "8": { "color": "#C1D3AD" }, "9": { "color": "#D2D2CF" },
+  "10": {
+    "color": "#B4C7B6",
+    "toc": "7 Литературные герои на приёме у психолога\n12 Можно ли переделать человека?\n14 Вязаные истории\n29 Умные очки Xvision\n31 Международности быть!\n37 «А по Разъезжей бродит Достоевский»",
+    "quote": "Тритон растет вместе со студентами, и его жизнь неразрывно связана с жизнью Гимназии",
+    "quoteBy": "Умар Гаджикулиев, главный редактор. Из слова редактора",
+    "title_en": "Collaboration: a condition for progress",
+    "desc_en": "Triton turns five, and the editors devoted the tenth issue to collaboration. Students and a teacher wrote a play, “Literary Characters at the Psychologist’s”, and the issue opens with an excerpt from it. Inside: an interview with a business coach about communication, “Knitted Stories”, an article about Xvision smart glasses and pieces on international life.",
+    "quote_en": "Triton grows together with the students, and its life is inseparable from the life of the Gymnasium",
+    "quoteBy_en": "Umar Gadzhikuliev, editor-in-chief. From the editor’s letter",
+    "coverAlt": "Обложка №10: сова и тритон за столом, между ними свеча в форме цифры 5",
+    "coverAlt_en": "Cover of issue 10: an owl and a newt at a table with a candle shaped like the number 5"
+  }
 };
 
 /* Редакция на странице «О журнале». Новые имена добавлять сюда, только с согласия людей. */
 const TEAM = [
-  { role: { ru: 'Главный редактор', en: 'Editor-in-chief' }, name: { ru: 'Умар Гаджикулиев', en: 'Umar Gadzhikuliev' } },
+  { "role": { "ru": "Главный редактор", "en": "Editor-in-chief" }, "name": { "ru": "Умар Гаджикулиев", "en": "Umar Gadzhikuliev" } }
 ];
 
 /* Объявление, если в базе его нет или база недоступна. Обычно его меняют в админке. */
@@ -155,6 +164,8 @@ const I = {
     fullscreen: 'На весь экран', exitFullscreen: 'Выйти из полноэкранного режима',
     opening: 'Открываем выпуск…', notLoaded: 'Выпуск не загрузился?', openIt: 'Откройте его в Google Диске', pdfFrame: (n) => `PDF выпуска №${n}`,
     annLabel: 'Объявление', annClose: 'Закрыть объявление',
+    award: 'Победитель всероссийского конкурса «Волшебное слово» в номинации «Лучшее школьное СМИ» (2026)',
+    cookieText: 'Мы используем cookies и Яндекс.Метрику, чтобы считать посещения сайта.', cookieOk: 'Понятно', cookieLabel: 'Уведомление о cookies',
     tHome: 'Тритон — журнал студентов Международной гимназии Сколково', tIssues: 'Все выпуски — Тритон',
     tIssue: (n, s) => `№${n}. ${s} — Тритон`, tAbout: 'О журнале — Тритон', tNotFound: 'Страница не найдена — Тритон',
     months: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
@@ -198,6 +209,8 @@ const I = {
     fullscreen: 'Full screen', exitFullscreen: 'Exit full screen',
     opening: 'Opening the issue…', notLoaded: 'Didn’t load?', openIt: 'Open it in Google Drive', pdfFrame: (n) => `PDF of issue ${n}`,
     annLabel: 'Announcement', annClose: 'Close the announcement',
+    award: 'Winner of the all-Russian “Magic Word” competition in the Best School Media category (2026)',
+    cookieText: 'We use cookies and Yandex Metrica to count visits to the site.', cookieOk: 'Got it', cookieLabel: 'Cookie notice',
     tHome: 'Triton, the student magazine of the International Gymnasium Skolkovo', tIssues: 'All issues — Triton',
     tIssue: (n, s) => `No. ${n}. ${s} — Triton`, tAbout: 'About — Triton', tNotFound: 'Page not found — Triton',
     months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -302,62 +315,152 @@ function normalize(raw) {
   return list;
 }
 
-let issuesP = null, retrying = false;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const same = (a, b) => JSON.stringify(a.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color])) === JSON.stringify(b.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color]));
+/* Чтение из базы для посетителей: REST Firestore вместо SDK, так страница не грузит 600 КБ кода.
+   Правила базы те же, что для SDK без входа. */
+const FS_REST = `https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents`;
+function fromFs(v) {
+  if (!v || typeof v !== 'object') return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('timestampValue' in v) return v.timestampValue;
+  if ('mapValue' in v) return fromFields(v.mapValue.fields);
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fromFs);
+  if ('referenceValue' in v) return v.referenceValue;
+  return null;
+}
+function fromFields(fields) {
+  return Object.fromEntries(Object.entries(fields || {}).map(([k, v]) => [k, fromFs(v)]));
+}
+async function restJson(url, init) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(new Error('timeout')), 9000);
+  try {
+    const r = await fetch(url, { cache: 'no-store', ...init, signal: ac.signal });
+    if (!r.ok) throw new Error(`Firestore: HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-/* Берём выпуски именно с сервера: если связь оборвалась, SDK иначе молча вернёт пустой кэш. */
+/* issuesGen растёт при каждом сбросе и новой загрузке: опоздавший ответ старой загрузки не перетрёт свежий. */
+let issuesP = null, issuesFresh = false, issuesGen = 0, refreshing = false;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* Запросы к базе и Метрика ждут события load и первого простоя: сначала обложки и шрифты первого экрана. */
+const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 1500 }) : setTimeout(r, 200)));
+const afterLoad = () => (document.readyState === 'complete' ? Promise.resolve() : new Promise((r) => window.addEventListener('load', r, { once: true }))).then(idle);
+/* Сравниваем только то, что видно на страницах: лишние поля в базе (например, number: null) не повод перерисовывать. */
+const shownFields = (list) => JSON.stringify(list.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color, x.eff]));
+const same = (a, b) => shownFields(a) === shownFields(b);
+
+/* Посетители: выпуски с сервера через REST, без кэша браузера. */
 async function fetchLive() {
+  const rows = await restJson(`${FS_REST}:runQuery?key=${FIREBASE_CONFIG.apiKey}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'issues' }], orderBy: [{ field: { fieldPath: 'uploadedAt' }, direction: 'ASCENDING' }] } }),
+  });
+  if (!Array.isArray(rows)) throw new Error('Firestore: неожиданный ответ');
+  return rows.filter((x) => x && x.document).map(({ document: d }) => ({ id: d.name.split('/').pop(), ...fromFields(d.fields) }));
+}
+/* Редакция: через SDK, с правами вошедшего редактора. Именно с сервера: иначе SDK при обрыве связи молча вернёт пустой кэш. */
+async function fetchLiveSdk() {
   const { m, db } = await firestore();
   const q = m.query(m.collection(db, 'issues'), m.orderBy('uploadedAt', 'asc'));
   const snap = await withTimeout((m.getDocsFromServer || m.getDocs)(q), 9000);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
-function loadIssues() {
-  if (!issuesP) {
-    issuesP = (async () => {
+/* Сохранённая копия: из неё же собраны HTML-страницы. */
+async function fetchSaved() {
+  const r = await fetch('/data/issues.json' + (V ? '?v=' + V : ''));
+  if (!r.ok) throw new Error(`issues.json: HTTP ${r.status}`);
+  return r.json();
+}
+/* Посетителям сразу отдаём сохранённую копию, а базу спрашиваем следом (refreshLive).
+   fresh: true — для редакции (api.loadIssues): сначала база через SDK, копия, только если база молчит. */
+function loadIssues({ fresh = false } = {}) {
+  if (issuesP && (!fresh || issuesFresh)) return issuesP;
+  issuesFresh = fresh;
+  const gen = ++issuesGen;
+  issuesP = (async () => {
+    if (!fresh) {
       try {
-        return { list: normalize(await fetchLive()), live: true };
-      } catch (error) {
-        console.warn('[Тритон] база не ответила, показываю сохранённую копию выпусков', error);
-        const r = await fetch('/data/issues.json' + (V ? '?v=' + V : ''));
-        if (!r.ok) throw error;
-        const res = { list: normalize(await r.json()), live: false, error };
-        retryLive(res.list);
-        return res;
+        const list = normalize(await fetchSaved());
+        refreshLive(list);
+        return { list, live: false };
+      } catch (e) {
+        console.warn('[Тритон] нет сохранённой копии выпусков, спрашиваю базу', e);
       }
-    })().catch((e) => { issuesP = null; throw e; });
-  }
+    }
+    try {
+      return { list: normalize(await (fresh ? fetchLiveSdk() : fetchLive())), live: true };
+    } catch (error) {
+      if (!fresh) throw error;
+      console.warn('[Тритон] база не ответила, показываю сохранённую копию выпусков', error);
+      const list = normalize(await fetchSaved().catch(() => { throw error; }));
+      return { list, live: false, error };
+    }
+  })().catch((e) => { if (gen === issuesGen) { issuesP = null; issuesFresh = false; } throw e; });
   return issuesP;
 }
-/* Пока показана копия, тихо пробуем достучаться до базы ещё раз; если данные отличаются, перерисовываем. */
-async function retryLive(shown) {
-  if (retrying) return;
-  retrying = true;
-  for (const wait of [2500, 6000, 15000]) {
+/* Номера нет в сохранённой копии: возможно, его только что добавили в базу. Спрашиваем базу, прежде чем сказать «нет». */
+async function findIssue(n) {
+  const res = await loadIssues();
+  if (res.live || res.list.some((x) => x.n === n)) return res;
+  try {
+    const list = normalize(await fetchLive());
+    if (!list.some((x) => x.n === n)) return res;
+    issuesP = Promise.resolve({ list, live: true });
+    issuesFresh = false;
+    return { list, live: true };
+  } catch (e) {
+    return res;
+  }
+}
+/* Пока показана копия, тихо читаем базу; если на страницах что-то изменится, перерисовываем. */
+async function refreshLive(shown) {
+  if (refreshing) return;
+  refreshing = true;
+  const gen = issuesGen;
+  await afterLoad();
+  for (const wait of [0, 2500, 6000, 15000]) {
     await sleep(wait);
+    if (gen !== issuesGen) break;
     try {
       const list = normalize(await fetchLive());
+      if (gen !== issuesGen) break;
       issuesP = Promise.resolve({ list, live: true });
       if (!same(list, shown) && current && current.name !== 'admin' && !(document.activeElement instanceof HTMLInputElement)) {
         current = null;
-        render({ keepScroll: window.scrollY });
+        render({ keepScroll: window.scrollY, refresh: true });
       }
       break;
     } catch (e) { /* следующая попытка */ }
   }
-  retrying = false;
+  refreshing = false;
 }
-function invalidateIssues() { issuesP = null; }
+function invalidateIssues() { issuesP = null; issuesFresh = false; issuesGen++; }
 
 let annP = null;
-function loadAnnouncement() {
-  if (!annP) {
+/* sdk: true — для редакции: читаем с правами вошедшего редактора и всегда заново. */
+function loadAnnouncement({ sdk = false } = {}) {
+  if (!annP || sdk) {
     annP = (async () => {
       try {
-        const { m, db } = await firestore();
-        const snap = await withTimeout(m.getDoc(m.doc(db, 'settings', 'announcement')), 8000);
-        if (snap.exists()) return { ...ANNOUNCEMENT_FALLBACK, ...snap.data(), source: 'db' };
+        if (sdk) {
+          const { m, db } = await firestore();
+          const snap = await withTimeout(m.getDoc(m.doc(db, 'settings', 'announcement')), 8000);
+          return snap.exists() ? { ...ANNOUNCEMENT_FALLBACK, ...snap.data(), source: 'db' } : { ...ANNOUNCEMENT_FALLBACK, source: 'code' };
+        }
+        // batchGet, а не GET документа: если объявления в базе нет, ответ 200 с missing, а не 404 в консоли.
+        const name = `projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents/settings/announcement`;
+        const rows = await restJson(`${FS_REST}:batchGet?key=${FIREBASE_CONFIG.apiKey}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documents: [name] }),
+        });
+        const doc = Array.isArray(rows) ? rows.find((x) => x && x.found)?.found : null;
+        if (doc) return { ...ANNOUNCEMENT_FALLBACK, ...fromFields(doc.fields), source: 'db' };
         return { ...ANNOUNCEMENT_FALLBACK, source: 'code' };
       } catch (e) {
         // Нет доступа к settings (правила базы ещё старые) или нет сети: объявление из кода.
@@ -395,15 +498,45 @@ function setColor(c) {
   if (m) m.setAttribute('content', c);
 }
 
+/* Ширина обложки в вёрстке: по ней браузер выбирает файл из srcset. */
+const COVER_SIZES = { "cv-xl": "(max-width: 720px) 100vw, 420px", "cv-s": "72px", "": "(max-width: 720px) calc(50vw - 30px), 240px" };
 function cover(x, cls = '', alt = '', eager = false) {
   const src = coverSrc(x), ph = placeholder(x);
-  return `<img class="cv${cls ? ' ' + cls : ''}" src="${esc(src || ph)}" data-ph="${esc(ph)}" alt="${esc(alt)}" width="420" height="594"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async">`;
+  const img = `<img class="cv${cls ? ' ' + cls : ''}" src="${esc(src || ph)}" data-ph="${esc(ph)}" alt="${esc(alt)}" width="420" height="594"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async">`;
+  const local = /^\/covers\/(\d+)\.jpg$/.exec(src);
+  if (!local) return img;
+  // WebP для всех, кто умеет; остальные получают JPG из <img>.
+  return `<picture><source type="image/webp" srcset="/covers/${local[1]}-360.webp 360w, /covers/${local[1]}.webp 640w" sizes="${COVER_SIZES[cls] || COVER_SIZES['']}">${img}</picture>`;
+}
+
+/* Вставить разметку, только если она отличается от той, что уже на странице.
+   Готовая страница из HTML так остаётся на месте: картинки не перезагружаются, ничего не мигает. */
+function setHtml(el, html) {
+  if (!el) return;
+  const probe = el.cloneNode(false);
+  probe.innerHTML = html;
+  if (probe.innerHTML !== el.innerHTML) el.innerHTML = html;
+}
+/* Заглушку «загружаем» показываем, только если на экране нет готовой страницы для этого адреса:
+   ни собранной build_pages.py, ни нарисованной раньше (перерисовка после ответа базы). */
+let mainKey = '', keepMain = false, viewAbort = null;
+/* Обработчики событий текущей страницы снимаются при следующей отрисовке. */
+function viewSignal() {
+  if (viewAbort) viewAbort.abort();
+  viewAbort = new AbortController();
+  return viewAbort.signal;
+}
+function skeleton(html) {
+  if (keepMain) return;
+  mainEl().innerHTML = html;
+  mainKey = '';
 }
 const ext = (href, label, cls) => `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${label}<span class="sr">${esc(t('newTab'))}</span></a>`;
 
-function card(x, isLatest = false) {
+/* eager: карточка в первом экране — обложку грузим сразу, не дожидаясь раскладки (LCP). */
+function card(x, isLatest = false, eager = false) {
   const meta = t('cardMeta', x.n, fmtMonth(x.date)) + (isLatest ? ' · ' + t('latestTag') : '');
-  return `<li><a class="card" href="${issuePath(x.n)}">${cover(x, '', '')}<span class="t">${esc(T(x))}</span><span class="m">${esc(meta)}</span></a></li>`;
+  return `<li><a class="card" href="${issuePath(x.n)}">${cover(x, '', '', eager)}<span class="t">${esc(T(x))}</span><span class="m">${esc(meta)}</span></a></li>`;
 }
 
 function tocSec(x, withHint) {
@@ -438,13 +571,14 @@ function ensurePublicChrome(r) {
   if (app.dataset.kind !== 'public') {
     app.dataset.kind = 'public';
     app.innerHTML = `<a class="skip" href="#main"></a><div id="ann"></div><header class="hdr" id="hdr"></header><div class="menu" id="menu" hidden></div><main id="main" tabindex="-1"></main><footer class="ftr" id="ftr"></footer>`;
+    mainKey = '';
   }
   document.body.classList.toggle('is-home', r.name === 'home');
-  app.querySelector('.skip').textContent = t('skip');
-  $('hdr').innerHTML = headerHtml(r);
-  $('menu').innerHTML = menuHtml(r);
+  setHtml(app.querySelector('.skip'), esc(t('skip')));
+  setHtml($('hdr'), headerHtml(r));
+  setHtml($('menu'), menuHtml(r));
   $('menu').hidden = true;
-  $('ftr').innerHTML = footerHtml();
+  setHtml($('ftr'), footerHtml());
 }
 
 function toggleMenu(open) {
@@ -454,7 +588,7 @@ function toggleMenu(open) {
   m.hidden = !willOpen;
   b.setAttribute('aria-expanded', String(willOpen));
   b.setAttribute('aria-label', t(willOpen ? 'menuClose' : 'menuOpen'));
-  b.innerHTML = willOpen ? ICON.close : ICON.burger;
+  setHtml(b, willOpen ? ICON.close : ICON.burger);
 }
 
 /* ---------------- страницы ---------------- */
@@ -467,7 +601,7 @@ function notFoundHtml(h, p) {
 const emptyHtml = () => `<section class="phero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('emptyH'))}</h1><p>${esc(t('emptyP'))}</p></div></section>`;
 
 async function vHome(r, stale) {
-  mainEl().innerHTML = `<section class="hero" aria-busy="true"><div class="wrap hero-g"><p class="mast">тритон</p><p class="badge"><b>&nbsp;</b><span>${esc(t('loading'))}</span></p><div class="hero-cv"><div class="cv cv-xl sk"></div></div></div></section>`;
+  skeleton(`<section class="hero" aria-busy="true"><div class="wrap hero-g"><p class="mast">тритон</p><p class="badge"><b>&nbsp;</b><span>${esc(t('loading'))}</span></p><div class="hero-cv"><div class="cv cv-xl sk"></div></div></div></section>`);
   const { list } = await loadIssues();
   if (stale()) return null;
   if (!list.length) { setColor(DEFAULT_COLOR); mainEl().innerHTML = emptyHtml(); return t('tHome'); }
@@ -486,7 +620,7 @@ async function vHome(r, stale) {
   const rest = list.slice(1);
   const shelf = rest.length ? `<section class="shelf" aria-labelledby="all-h"><div class="wrap shelf-h"><h2 class="h2" id="all-h">${esc(t('allIssues'))}</h2><p>${esc(t('since', list.length))}</p><a class="shelf-all" href="/issues/">${esc(t('allN', list.length))}</a></div><div class="wrap flush"><ul class="grid5" role="list">${rest.map((y) => card(y)).join('')}</ul></div></section>` : '';
   const about = `<section class="about2" aria-labelledby="about-h"><div class="wrap"><div class="col"><h2 class="h2" id="about-h">${esc(t('aboutH'))}</h2><p>${esc(t('aboutShort', list.length))}</p></div>${joinBox()}</div></section>`;
-  mainEl().innerHTML = hero + tocSec(x, false) + shelf + about;
+  setHtml(mainEl(), hero + tocSec(x, false) + shelf + about);
   return t('tHome');
 }
 
@@ -494,30 +628,33 @@ async function vIssues(r, stale) {
   const params = new URLSearchParams(location.search);
   let q = params.get('q') || '';
   let year = params.get('year') || '';
-  mainEl().innerHTML = `<section class="phero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('allIssues'))}</h1><p id="since">&nbsp;</p></div></section><div id="ilist"><div class="wrap state"><p>${esc(t('loading'))}</p></div></div>`;
+  skeleton(`<section class="phero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('allIssues'))}</h1><p id="since">&nbsp;</p></div></section><div id="ilist"><div class="wrap state"><p>${esc(t('loading'))}</p></div></div>`);
   const { list } = await loadIssues();
   if (stale()) return null;
   setColor(list[0]?.color || DEFAULT_COLOR);
-  $('since').textContent = list.length ? t('since', list.length) + '.' : t('emptyP');
+  setHtml($('since'), esc(list.length ? t('since', list.length) + '.' : t('emptyP')));
   const years = [...new Set(list.map((x) => ym(x.date)?.y).filter(Boolean))].sort((a, b) => b - a);
   if (year && !years.includes(+year)) year = '';
   const chip = (val, label) => `<button type="button" class="chip" data-year="${val}" aria-pressed="${String(year === String(val))}">${esc(label)}</button>`;
-  $('ilist').innerHTML = `<section class="filters" aria-label="${esc(t('filtersLabel'))}"><div class="wrap">
+  const latestN = list[0]?.n;
+  const found = () => list.filter((x) => matches(x, norm(q).split(/\s+/).filter(Boolean), year));
+  const cards = (shown) => shown.map((x, i) => card(x, x.n === latestN, i < 2)).join('');
+  // Сразу с найденными номерами: так разметка совпадает с готовой страницей из HTML.
+  const first = found();
+  setHtml($('ilist'), `<section class="filters" aria-label="${esc(t('filtersLabel'))}"><div class="wrap">
 <div class="fsearch"><label class="lbl" for="q">${esc(t('searchLabel'))}</label><input id="q" class="inp" type="search" name="q" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="${esc(t('searchPh'))}" value="${esc(q)}"></div>
 <div class="chips" role="group" aria-label="${esc(t('yearLabel'))}">${chip('', t('allYears'))}${years.map((y) => chip(y, String(y))).join('')}</div>
-<p class="found" id="found" role="status"></p>
+<p class="found" id="found" role="status">${esc(t('found', first.length))}</p>
 </div></section>
-<section class="results" aria-label="${esc(t('resultsLabel'))}"><div class="wrap"><ul class="grid5" role="list" id="grid"></ul>
-<div class="state" id="nores" hidden><h2>${esc(t('noResH'))}</h2><p>${esc(t('noResP'))}</p><button type="button" class="btn btn-o" id="reset">${esc(t('reset'))}</button></div></div></section>`;
+<section class="results" aria-label="${esc(t('resultsLabel'))}"><div class="wrap"><ul class="grid5" role="list" id="grid"${first.length ? '' : ' hidden'}>${cards(first)}</ul>
+<div class="state" id="nores"${first.length ? ' hidden' : ''}><h2>${esc(t('noResH'))}</h2><p>${esc(t('noResP'))}</p><button type="button" class="btn btn-o" id="reset">${esc(t('reset'))}</button></div></div></section>`);
 
-  const latestN = list[0]?.n;
   const apply = () => {
-    const tokens = norm(q).split(/\s+/).filter(Boolean);
-    const shown = list.filter((x) => matches(x, tokens, year));
-    $('grid').innerHTML = shown.map((x) => card(x, x.n === latestN)).join('');
-    $('grid').hidden = !shown.length;
-    $('nores').hidden = !!shown.length;
-    $('found').textContent = t('found', shown.length);
+    const shown = found();
+    setHtml($('grid'), cards(shown));
+    if ($('grid').hidden !== !shown.length) $('grid').hidden = !shown.length;
+    if ($('nores').hidden !== !!shown.length) $('nores').hidden = !!shown.length;
+    setHtml($('found'), esc(t('found', shown.length)));
     app.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.year === year)));
     const sp = new URLSearchParams();
     if (q.trim()) sp.set('q', q.trim());
@@ -529,15 +666,17 @@ async function vIssues(r, stale) {
     }
   };
   let timer = 0;
-  $('q').addEventListener('input', (e) => { q = e.target.value; clearTimeout(timer); timer = setTimeout(apply, 120); });
-  $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); apply(); e.target.blur(); } });
+  // Элементы могли остаться от прошлой отрисовки (setHtml их не пересоздаёт): старые обработчики снимает signal.
+  const on = { signal: viewSignal() };
+  $('q').addEventListener('input', (e) => { q = e.target.value; clearTimeout(timer); timer = setTimeout(apply, 120); }, on);
+  $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); apply(); e.target.blur(); } }, on);
   app.querySelector('.chips').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
     if (!b) return;
     year = b.dataset.year;
     apply();
-  });
-  $('reset').addEventListener('click', () => { q = ''; year = ''; $('q').value = ''; apply(); $('q').focus(); });
+  }, on);
+  $('reset').addEventListener('click', () => { q = ''; year = ''; $('q').value = ''; apply(); $('q').focus(); }, on);
   apply();
   return t('tIssues');
 }
@@ -557,8 +696,8 @@ function matches(x, tokens, year) {
 }
 
 async function vIssue(r, stale) {
-  mainEl().innerHTML = `<section class="ihero" aria-busy="true"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">${esc(t('noN', r.n))}</span></nav><div class="ihero-g"><div class="ihero-cv"><div class="cv cv-xl sk"></div></div><div class="ihero-t"><p class="meta">${esc(t('issueN', r.n))}</p><p class="sr">${esc(t('loading'))}</p></div></div></div></section>`;
-  const { list } = await loadIssues();
+  skeleton(`<section class="ihero" aria-busy="true"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">${esc(t('noN', r.n))}</span></nav><div class="ihero-g"><div class="ihero-cv"><div class="cv cv-xl sk"></div></div><div class="ihero-t"><p class="meta">${esc(t('issueN', r.n))}</p><p class="sr">${esc(t('loading'))}</p></div></div></div></section>`);
+  const { list } = await findIssue(r.n);
   if (stale()) return null;
   const i = list.findIndex((x) => x.n === r.n);
   if (i < 0) {
@@ -588,12 +727,12 @@ async function vIssue(r, stale) {
   const prev = list[i + 1], next = list[i - 1];
   const pn = (y, label) => (y ? `<a class="pn-a" href="${issuePath(y.n)}">${cover(y, 'cv-s', '')}<span><small>${esc(label)}</small><b>${esc(t('noN', y.n))} ${esc(t('q', T(y)))}</b></span></a>` : '');
   const nav = `<nav class="pn" aria-label="${esc(t('others'))}"><div class="wrap"><div class="pn-l">${pn(prev, t('prev'))}${pn(next, t('next'))}</div><a class="btn btn-o" href="/issues/">${esc(t('allIssues'))}</a></div></nav>`;
-  mainEl().innerHTML = hero + tocSec(x, true) + quote + nav;
+  setHtml(mainEl(), hero + tocSec(x, true) + quote + nav);
   return t('tIssue', x.n, T(x));
 }
 
 async function vAbout(r, stale) {
-  mainEl().innerHTML = `<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>&nbsp;</p></div></section>`;
+  skeleton(`<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>&nbsp;</p></div></section>`);
   let list = [];
   try { ({ list } = await loadIssues()); } catch (e) { list = []; }
   if (stale()) return null;
@@ -610,13 +749,13 @@ async function vAbout(r, stale) {
   const hist = n ? `<section class="hist" aria-labelledby="hist-h"><div class="wrap"><h2 class="h2" id="hist-h">${esc(t('histH', yearsSinceStart(), n))}</h2><p class="intro">${esc(t('histP'))}</p><div class="years">${years}</div></div></section>` : '';
   const team = `<section class="team${n ? '' : ' hist'}" aria-labelledby="team-h"><div class="wrap"><h2 class="h2" id="team-h">${esc(t('teamH'))}</h2><p class="intro">${esc(t('teamP'))}</p><ul class="people" role="list">${TEAM.map((p) => `<li class="person"><span>${esc(p.role[lang])}</span><b>${esc(p.name[lang])}</b></li>`).join('')}</ul></div></section>`;
   const join = `<section class="joinsec" id="join" aria-labelledby="join-h"><div class="wrap"><div class="jt"><h2 class="h2" id="join-h">${esc(t('joinH'))}</h2><p>${esc(t('joinText'))}</p>${ext(TG_URL, esc(t('joinBtn')), 'btn btn-w')}</div><ul class="roles" role="list">${t('roles').map(([a, b]) => `<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ul></div></section>`;
-  mainEl().innerHTML = `<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>${esc(n ? t('aboutLead', n) : t('aboutLead0'))}</p></div></section>` + hist + team + join;
+  setHtml(mainEl(), `<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>${esc(n ? t('aboutLead', n) : t('aboutLead0'))}</p><p class="award">${esc(t('award'))}</p></div></section>` + hist + team + join);
   return t('tAbout');
 }
 
 async function vNotFound() {
   try { const { list } = await loadIssues(); setColor(list[0]?.color || DEFAULT_COLOR); } catch (e) { /* цвет по умолчанию */ }
-  mainEl().innerHTML = notFoundHtml(t('nfH'), t('nfP'));
+  setHtml(mainEl(), notFoundHtml(t('nfH'), t('nfP')));
   return t('tNotFound');
 }
 
@@ -649,15 +788,17 @@ async function renderAnn(view, token) {
   let latest = null;
   try { latest = (await loadIssues()).list[0] || null; } catch (e) { /* без ссылки на номер */ }
   if (token !== renderToken || !$('ann')) return;
-  $('ann').innerHTML = '';
-  if (!annVisible(a, view)) return;
-  try { if (sessionStorage.getItem(annKey(a))) return; } catch (e) { /* без памяти о закрытии */ }
+  setHtml($('ann'), annHtml(a, view, latest));
+  $('ann').dataset.key = annKey(a);
+}
+function annHtml(a, view, latest) {
+  if (!annVisible(a, view)) return '';
+  try { if (sessionStorage.getItem(annKey(a))) return ''; } catch (e) { /* без памяти о закрытии */ }
   const tx = lang === 'en' && (str(a.en?.title) || str(a.en?.text)) ? a.en : (a.ru || {});
-  if (!str(tx.title) && !str(tx.text)) return;
+  if (!str(tx.title) && !str(tx.text)) return '';
   const link = annHref(a, latest);
   const btn = link && str(tx.button) ? (link.ext ? ext(link.href, esc(tx.button), 'ann-b') : `<a class="ann-b" href="${esc(link.href)}">${esc(tx.button)}</a>`) : '';
-  $('ann').innerHTML = `<div class="ann" role="region" aria-label="${esc(t('annLabel'))}"><div class="wrap"><p class="ann-t">${str(tx.title) ? `<strong>${esc(tx.title)}</strong> ` : ''}${esc(str(tx.text))}</p>${btn}<button type="button" class="ann-x" aria-label="${esc(t('annClose'))}">${ICON.close}</button></div></div>`;
-  $('ann').dataset.key = annKey(a);
+  return `<div class="ann" role="region" aria-label="${esc(t('annLabel'))}"><div class="wrap"><p class="ann-t">${str(tx.title) ? `<strong>${esc(tx.title)}</strong> ` : ''}${esc(str(tx.text))}</p>${btn}<button type="button" class="ann-x" aria-label="${esc(t('annClose'))}">${ICON.close}</button></div></div>`;
 }
 
 /* ---------------- читалка ---------------- */
@@ -669,7 +810,7 @@ async function openReader(n) {
   if (readerEl && readerN === n) return;
   closeReaderDom(false);
   let x;
-  try { x = (await loadIssues()).list.find((i) => i.n === n); } catch (e) { return; }
+  try { x = (await findIssue(n)).list.find((i) => i.n === n); } catch (e) { return; }
   if (!x || readerEl) return;
   const src = embedUrl(x.pdfUrl);
   const pdf = isHttps(x.pdfUrl) ? x.pdfUrl.trim() : '';
@@ -695,6 +836,7 @@ ${pdf ? `<p class="rdr-note">${esc(t('notLoaded'))} <a href="${esc(pdf)}" target
   document.body.appendChild(readerEl);
   app.inert = true;
   document.documentElement.classList.add('locked');
+  if (cookieEl) cookieEl.inert = true; // плашка вне #app: под читалкой её тоже нельзя достать с клавиатуры
   readerEl.querySelector('.rdr-back').focus();
 }
 function closeReaderDom(restoreFocus = true) {
@@ -704,6 +846,7 @@ function closeReaderDom(restoreFocus = true) {
   readerEl = null;
   readerN = 0;
   app.inert = false;
+  if (cookieEl) cookieEl.inert = false;
   document.documentElement.classList.remove('locked');
   if (restoreFocus) {
     const f = lastFocus && document.contains(lastFocus) ? lastFocus : app.querySelector('main h1');
@@ -744,7 +887,8 @@ function parseRoute(path) {
 let renderToken = 0, current = null, renderedPS = '';
 const api = {
   app, esc, str, isHttps, PALETTE, DEFAULT_COLOR, ANNOUNCEMENT_FALLBACK, plural, todayStr, parseToc, withTimeout,
-  loadIssues, invalidateIssues, firestore, authLib, loadAnnouncement, resetAnnouncement, annVisible, annHref,
+  loadIssues: () => loadIssues({ fresh: true }), invalidateIssues, firestore, authLib,
+  loadAnnouncement: () => loadAnnouncement({ sdk: true }), resetAnnouncement, annVisible, annHref,
   toast, navigate, setColor, coverSrc, placeholder, driveId, fmtMonthRu: (d) => fmtMonth(d, 'ru'),
 };
 
@@ -753,14 +897,20 @@ async function render(opts = {}) {
   renderedPS = location.pathname + location.search;
   const r = parseRoute(location.pathname);
   const key = r.name === 'issue' ? 'issue:' + r.n : r.name;
-  toggleMenu(false);
+  // refresh: перерисовка после ответа базы. Адрес тот же: меню, шапку и открытую читалку не трогаем.
+  const refresh = !!opts.refresh;
+  if (!refresh) toggleMenu(false);
   if (current && current.key === key && current.lang === lang && r.name === 'issue') {
     if (r.read) openReader(r.n); else closeReaderDom();
+    metrikaHit();
     return;
   }
-  closeReaderDom(false);
+  if (!(refresh && r.read && readerN === r.n)) closeReaderDom(false);
   current = { key, lang, name: r.name };
+  cookieBar(r.name !== 'admin');
   if (r.name === 'admin') {
+    // Метрика уже загружена с публичной страницы: открываем редакцию заново, без неё.
+    if (metrikaOn) { location.reload(); return; }
     document.body.classList.remove('is-home');
     if (app.dataset.kind !== 'admin') {
       app.dataset.kind = 'admin';
@@ -779,20 +929,24 @@ async function render(opts = {}) {
     }
     return;
   }
-  ensurePublicChrome(r);
+  if (!refresh || app.dataset.kind !== 'public') ensurePublicChrome(r);
+  if (mainEl().dataset.pre) { mainKey = mainEl().dataset.pre; delete mainEl().dataset.pre; }
+  keepMain = mainKey === key;
   const view = VIEWS[r.name] || vNotFound;
   const p = view(r, () => token !== renderToken);
   if (opts.nav && !location.hash) window.scrollTo(0, 0);
-  let title;
+  let title, failed = false;
   try {
     title = await p;
   } catch (e) {
     console.error(e);
     if (token !== renderToken) return;
     mainEl().innerHTML = errorHtml();
+    failed = true;
     title = t('errH');
   }
   if (token !== renderToken || title === null) return;
+  mainKey = failed ? '' : key;
   document.title = title;
   renderAnn(r.name, token);
   if (r.read) openReader(r.n);
@@ -806,6 +960,63 @@ async function render(opts = {}) {
     const h = mainEl()?.querySelector('h1');
     if (h) h.focus({ preventScroll: true });
   }
+  // Один просмотр на адрес: повторная отрисовка того же адреса (фоновая из базы, смена языка) не считается,
+  // а если первая отрисовка не успела отправить просмотр (её перебила фоновая), его отправит эта.
+  // Страница ошибки не считается: просмотр уйдёт после «Попробовать снова».
+  if (!failed) metrikaHit();
+}
+
+/* ---------------- Яндекс.Метрика ----------------
+   window.ym — функция Метрики (своя ym в этом файле разбирает даты). Счётчик включается на первой публичной
+   странице, tag.js грузится после события load. Просмотры отправляем сами (defer: true): один на адрес,
+   без строки поиска, фоновые перерисовки не считаются. В редакции Метрики нет. */
+const METRIKA_ID = 114053772;
+const METRIKA_SRC = 'https://mc.yandex.ru/metrika/tag.js';
+let metrikaOn = false, lastHit = '';
+function metrikaStart() {
+  if (metrikaOn) return;
+  metrikaOn = true;
+  const w = window;
+  w.ym = w.ym || function () { (w.ym.a = w.ym.a || []).push(arguments); };
+  w.ym.l = Date.now();
+  w.ym(METRIKA_ID, 'init', { defer: true, clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: false });
+  const load = () => {
+    if (document.querySelector(`script[src="${METRIKA_SRC}"]`)) return;
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = METRIKA_SRC;
+    document.head.appendChild(s);
+  };
+  afterLoad().then(load);
+}
+const noSearch = (u) => { try { const x = new URL(u); return x.origin + x.pathname; } catch (e) { return ''; } };
+function metrikaHit() {
+  if (parseRoute(location.pathname).name === 'admin') return;
+  const url = location.origin + location.pathname;
+  if (url === lastHit) return;
+  metrikaStart();
+  const referer = lastHit || (document.referrer.startsWith(location.origin) ? noSearch(document.referrer) : document.referrer);
+  window.ym(METRIKA_ID, 'hit', url, { title: document.title, referer });
+  lastHit = url;
+}
+
+/* ---------------- плашка о cookies ----------------
+   Вне #app, поверх страницы (position: fixed), под читалкой. Закрытие помнит localStorage. */
+const COOKIE_KEY = 'triton_cookies_ok';
+let cookieEl = null, cookieClosed = false;
+function cookieBar(show) {
+  let closed = cookieClosed;
+  try { closed = closed || localStorage.getItem(COOKIE_KEY) === '1'; } catch (e) { /* покажем плашку */ }
+  if (!show || closed) { if (cookieEl) cookieEl.hidden = true; return; }
+  if (!cookieEl) {
+    cookieEl = document.createElement('div');
+    cookieEl.className = 'cookie';
+    cookieEl.setAttribute('role', 'region');
+    document.body.appendChild(cookieEl);
+  }
+  cookieEl.setAttribute('aria-label', t('cookieLabel'));
+  setHtml(cookieEl, `<p class="cookie-t">${esc(t('cookieText'))}</p><button type="button" class="cookie-b" data-cookie-ok>${esc(t('cookieOk'))}</button>`);
+  cookieEl.hidden = false;
 }
 
 function navigate(to, { replace = false } = {}) {
@@ -879,6 +1090,15 @@ document.addEventListener('click', (e) => {
   }
   if (el.closest('[data-retry]')) { invalidateIssues(); current = null; render({}); return; }
   if (el.closest('[data-reload]')) { location.reload(); return; }
+  if (el.closest('[data-cookie-ok]')) {
+    cookieClosed = true;
+    try { localStorage.setItem(COOKIE_KEY, '1'); } catch (err) { /* закроется до перезагрузки */ }
+    if (cookieEl) {
+      if (cookieEl.contains(document.activeElement)) mainEl()?.focus({ preventScroll: true }); // фокус не пропадает вместе с плашкой
+      cookieEl.hidden = true;
+    }
+    return;
+  }
   if (el.closest('[data-fs]') && readerEl) {
     if (!fsActive()) { const req = readerEl.requestFullscreen || readerEl.webkitRequestFullscreen; if (req) { const p = req.call(readerEl); if (p && p.catch) p.catch(() => {}); } }
     else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -911,11 +1131,16 @@ document.addEventListener('keydown', (e) => {
   if (m && !m.hidden) { toggleMenu(false); app.querySelector('.burger')?.focus(); }
 });
 
-// Обложка не загрузилась: показываем цветную заглушку с номером.
-document.addEventListener('error', (e) => {
-  const img = e.target;
-  if (img instanceof HTMLImageElement && img.dataset.ph && img.src !== img.dataset.ph) img.src = img.dataset.ph;
-}, true);
+// Обложка не загрузилась: сначала пробуем JPG вместо WebP, потом показываем цветную заглушку с номером.
+function coverFailed(img) {
+  if (!(img instanceof HTMLImageElement) || !img.dataset.ph) return;
+  const pic = img.parentElement;
+  if (pic instanceof HTMLPictureElement && pic.querySelector('source')) { pic.querySelectorAll('source').forEach((s) => s.remove()); return; }
+  if (img.src !== img.dataset.ph) img.src = img.dataset.ph;
+}
+document.addEventListener('error', (e) => coverFailed(e.target), true);
+// Обложки из готовой страницы могли не загрузиться ещё до запуска app.js.
+document.querySelectorAll('img[data-ph]').forEach((img) => { if (img.complete && !img.naturalWidth) coverFailed(img); });
 
 /* ---------------- запуск ---------------- */
 document.documentElement.lang = lang;
