@@ -57,6 +57,8 @@ JOIN_TEXT = 'Редакция ищет авторов, иллюстраторо�
 ROLES = [('Авторы', 'пишут интервью, рассказы и статьи'), ('Иллюстраторы', 'рисуют обложки и картинки к текстам'),
          ('Фотографы', 'снимают людей и события гимназии'), ('Верстальщики', 'собирают страницы номера')]
 PUBLISHER = 'Международная гимназия Сколково'
+AWARD = 'Победитель всероссийского конкурса «Волшебное слово» в номинации «Лучшее школьное СМИ» (2026)'
+YANDEX_VERIFICATION = 'f0bd390f630c6588'  # Яндекс.Вебмастер, только на главной
 
 e = lambda s: html.escape(str(s), quote=True)
 
@@ -207,9 +209,9 @@ def cover(x, cls='', alt='', eager=False):
     return f'<picture><source type="image/webp" srcset="/covers/{n}-360.webp 360w, /covers/{n}.webp 640w" sizes="{COVER_SIZES.get(cls) or COVER_SIZES[""]}">{img}</picture>'
 
 
-def card(x, latest=False):
+def card(x, latest=False, eager=False):
     meta = f'№{x["n"]}, {month(x.get("date"))}' + (' · новый' if latest else '')
-    return f'<li><a class="card" href="{issue_path(x["n"])}">{cover(x)}<span class="t">{e(x["titleView"])}</span><span class="m">{e(meta)}</span></a></li>'
+    return f'<li><a class="card" href="{issue_path(x["n"])}">{cover(x, "", "", eager)}<span class="t">{e(x["titleView"])}</span><span class="m">{e(meta)}</span></a></li>'
 
 
 def toc_sec(x, hint):
@@ -286,7 +288,7 @@ def v_issues(items):
 <div class="chips" role="group" aria-label="Год выпуска">{chip("", "Все")}{"".join(chip(y, str(y)) for y in years)}</div>
 <p class="found" id="found" role="status">Найдено: {len(items)}</p>
 </div></section>
-<section class="results" aria-label="Выпуски"><div class="wrap"><ul class="grid5" role="list" id="grid">{"".join(card(x, x["n"] == latest) for x in items)}</ul>
+<section class="results" aria-label="Выпуски"><div class="wrap"><ul class="grid5" role="list" id="grid">{"".join(card(x, x["n"] == latest, i < 2) for i, x in enumerate(items))}</ul>
 <div class="state" id="nores" hidden><h2>Ничего не нашлось</h2><p>Попробуйте другое слово или покажите все годы.</p><button type="button" class="btn btn-o" id="reset">Сбросить поиск</button></div></div></section></div>''')
 
 
@@ -340,7 +342,8 @@ def v_about(items, years_since):
             f'<p>{e(JOIN_TEXT)}</p>{ext(TG_URL, "Написать в редакцию", "btn btn-w")}</div><ul class="roles" role="list">{roles}</ul></div></section>')
     lead = (f'«Тритон» делают студенты Международной гимназии Сколково. С октября 2021 года {out_ru(n)} {issues_ru(n)}: интервью, рассказы, исследования, рисунки и фотографии студентов.'
             if n else '«Тритон» делают студенты Международной гимназии Сколково. В номерах интервью, рассказы, исследования, рисунки и фотографии студентов.')
-    return f'<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">О журнале</h1><p>{e(lead)}</p></div></section>' + hist + team + join
+    return (f'<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">О журнале</h1><p>{e(lead)}</p>'
+            f'<p class="award">{e(AWARD)}</p></div></section>' + hist + team + join)
 
 
 # ---------------- schema.org ----------------
@@ -401,6 +404,7 @@ def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', n
     size = (1200, 630) if image == '/og-image.png' else image_size(ROOT / image.lstrip('/'))
     meta = [
         f'<meta name="description" content="{e(desc)}">',
+        *([f'<meta name="yandex-verification" content="{YANDEX_VERIFICATION}">'] if home else []),
         '<meta name="robots" content="noindex">' if noindex else f'<link rel="canonical" href="{e(url)}">',
         f'<meta name="theme-color" content="{e(color)}">',
         '<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">',

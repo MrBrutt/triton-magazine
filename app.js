@@ -164,6 +164,8 @@ const I = {
     fullscreen: 'На весь экран', exitFullscreen: 'Выйти из полноэкранного режима',
     opening: 'Открываем выпуск…', notLoaded: 'Выпуск не загрузился?', openIt: 'Откройте его в Google Диске', pdfFrame: (n) => `PDF выпуска №${n}`,
     annLabel: 'Объявление', annClose: 'Закрыть объявление',
+    award: 'Победитель всероссийского конкурса «Волшебное слово» в номинации «Лучшее школьное СМИ» (2026)',
+    cookieText: 'Мы используем cookies и Яндекс.Метрику, чтобы считать посещения сайта.', cookieOk: 'Понятно', cookieLabel: 'Уведомление о cookies',
     tHome: 'Тритон — журнал студентов Международной гимназии Сколково', tIssues: 'Все выпуски — Тритон',
     tIssue: (n, s) => `№${n}. ${s} — Тритон`, tAbout: 'О журнале — Тритон', tNotFound: 'Страница не найдена — Тритон',
     months: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
@@ -207,6 +209,8 @@ const I = {
     fullscreen: 'Full screen', exitFullscreen: 'Exit full screen',
     opening: 'Opening the issue…', notLoaded: 'Didn’t load?', openIt: 'Open it in Google Drive', pdfFrame: (n) => `PDF of issue ${n}`,
     annLabel: 'Announcement', annClose: 'Close the announcement',
+    award: 'Winner of the all-Russian “Magic Word” competition in the Best School Media category (2026)',
+    cookieText: 'We use cookies and Yandex Metrica to count visits to the site.', cookieOk: 'Got it', cookieLabel: 'Cookie notice',
     tHome: 'Triton, the student magazine of the International Gymnasium Skolkovo', tIssues: 'All issues — Triton',
     tIssue: (n, s) => `No. ${n}. ${s} — Triton`, tAbout: 'About — Triton', tNotFound: 'Page not found — Triton',
     months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -344,6 +348,9 @@ async function restJson(url, init) {
 /* issuesGen растёт при каждом сбросе и новой загрузке: опоздавший ответ старой загрузки не перетрёт свежий. */
 let issuesP = null, issuesFresh = false, issuesGen = 0, refreshing = false;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* Запросы к базе и Метрика ждут события load и первого простоя: сначала обложки и шрифты первого экрана. */
+const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 1500 }) : setTimeout(r, 200)));
+const afterLoad = () => (document.readyState === 'complete' ? Promise.resolve() : new Promise((r) => window.addEventListener('load', r, { once: true }))).then(idle);
 /* Сравниваем только то, что видно на страницах: лишние поля в базе (например, number: null) не повод перерисовывать. */
 const shownFields = (list) => JSON.stringify(list.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color, x.eff]));
 const same = (a, b) => shownFields(a) === shownFields(b);
@@ -417,8 +424,7 @@ async function refreshLive(shown) {
   if (refreshing) return;
   refreshing = true;
   const gen = issuesGen;
-  // Сначала страница догружает обложки и шрифты, потом идём в базу.
-  if (document.readyState !== 'complete') await new Promise((r) => window.addEventListener('load', r, { once: true }));
+  await afterLoad();
   for (const wait of [0, 2500, 6000, 15000]) {
     await sleep(wait);
     if (gen !== issuesGen) break;
@@ -448,6 +454,7 @@ function loadAnnouncement({ sdk = false } = {}) {
           const snap = await withTimeout(m.getDoc(m.doc(db, 'settings', 'announcement')), 8000);
           return snap.exists() ? { ...ANNOUNCEMENT_FALLBACK, ...snap.data(), source: 'db' } : { ...ANNOUNCEMENT_FALLBACK, source: 'code' };
         }
+        await afterLoad();
         // batchGet, а не GET документа: если объявления в базе нет, ответ 200 с missing, а не 404 в консоли.
         const name = `projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents/settings/announcement`;
         const rows = await restJson(`${FS_REST}:batchGet?key=${FIREBASE_CONFIG.apiKey}`, {
@@ -527,9 +534,10 @@ function skeleton(html) {
 }
 const ext = (href, label, cls) => `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${label}<span class="sr">${esc(t('newTab'))}</span></a>`;
 
-function card(x, isLatest = false) {
+/* eager: карточка в первом экране — обложку грузим сразу, не дожидаясь раскладки (LCP). */
+function card(x, isLatest = false, eager = false) {
   const meta = t('cardMeta', x.n, fmtMonth(x.date)) + (isLatest ? ' · ' + t('latestTag') : '');
-  return `<li><a class="card" href="${issuePath(x.n)}">${cover(x, '', '')}<span class="t">${esc(T(x))}</span><span class="m">${esc(meta)}</span></a></li>`;
+  return `<li><a class="card" href="${issuePath(x.n)}">${cover(x, '', '', eager)}<span class="t">${esc(T(x))}</span><span class="m">${esc(meta)}</span></a></li>`;
 }
 
 function tocSec(x, withHint) {
@@ -631,7 +639,7 @@ async function vIssues(r, stale) {
   const chip = (val, label) => `<button type="button" class="chip" data-year="${val}" aria-pressed="${String(year === String(val))}">${esc(label)}</button>`;
   const latestN = list[0]?.n;
   const found = () => list.filter((x) => matches(x, norm(q).split(/\s+/).filter(Boolean), year));
-  const cards = (shown) => shown.map((x) => card(x, x.n === latestN)).join('');
+  const cards = (shown) => shown.map((x, i) => card(x, x.n === latestN, i < 2)).join('');
   // Сразу с найденными номерами: так разметка совпадает с готовой страницей из HTML.
   const first = found();
   setHtml($('ilist'), `<section class="filters" aria-label="${esc(t('filtersLabel'))}"><div class="wrap">
@@ -742,7 +750,7 @@ async function vAbout(r, stale) {
   const hist = n ? `<section class="hist" aria-labelledby="hist-h"><div class="wrap"><h2 class="h2" id="hist-h">${esc(t('histH', yearsSinceStart(), n))}</h2><p class="intro">${esc(t('histP'))}</p><div class="years">${years}</div></div></section>` : '';
   const team = `<section class="team${n ? '' : ' hist'}" aria-labelledby="team-h"><div class="wrap"><h2 class="h2" id="team-h">${esc(t('teamH'))}</h2><p class="intro">${esc(t('teamP'))}</p><ul class="people" role="list">${TEAM.map((p) => `<li class="person"><span>${esc(p.role[lang])}</span><b>${esc(p.name[lang])}</b></li>`).join('')}</ul></div></section>`;
   const join = `<section class="joinsec" id="join" aria-labelledby="join-h"><div class="wrap"><div class="jt"><h2 class="h2" id="join-h">${esc(t('joinH'))}</h2><p>${esc(t('joinText'))}</p>${ext(TG_URL, esc(t('joinBtn')), 'btn btn-w')}</div><ul class="roles" role="list">${t('roles').map(([a, b]) => `<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ul></div></section>`;
-  setHtml(mainEl(), `<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>${esc(n ? t('aboutLead', n) : t('aboutLead0'))}</p></div></section>` + hist + team + join);
+  setHtml(mainEl(), `<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">${esc(t('aboutH'))}</h1><p>${esc(n ? t('aboutLead', n) : t('aboutLead0'))}</p><p class="award">${esc(t('award'))}</p></div></section>` + hist + team + join);
   return t('tAbout');
 }
 
@@ -893,11 +901,15 @@ async function render(opts = {}) {
   if (!refresh) toggleMenu(false);
   if (current && current.key === key && current.lang === lang && r.name === 'issue') {
     if (r.read) openReader(r.n); else closeReaderDom();
+    if (!refresh) metrikaHit();
     return;
   }
   if (!(refresh && r.read && readerN === r.n)) closeReaderDom(false);
   current = { key, lang, name: r.name };
+  cookieBar(r.name !== 'admin');
   if (r.name === 'admin') {
+    // Метрика уже загружена с публичной страницы: открываем редакцию заново, без неё.
+    if (metrikaOn) { location.reload(); return; }
     document.body.classList.remove('is-home');
     if (app.dataset.kind !== 'admin') {
       app.dataset.kind = 'admin';
@@ -947,6 +959,61 @@ async function render(opts = {}) {
     const h = mainEl()?.querySelector('h1');
     if (h) h.focus({ preventScroll: true });
   }
+  // Фоновая перерисовка из базы — не новый просмотр.
+  if (!refresh) metrikaHit();
+}
+
+/* ---------------- Яндекс.Метрика ----------------
+   window.ym — функция Метрики (своя ym в этом файле разбирает даты). Счётчик включается на первой публичной
+   странице, tag.js грузится после события load. Просмотры отправляем сами (defer: true): один на адрес,
+   без строки поиска, фоновые перерисовки не считаются. В редакции Метрики нет. */
+const METRIKA_ID = 114053772;
+const METRIKA_SRC = 'https://mc.yandex.ru/metrika/tag.js';
+let metrikaOn = false, lastHit = '';
+function metrikaStart() {
+  if (metrikaOn) return;
+  metrikaOn = true;
+  const w = window;
+  w.ym = w.ym || function () { (w.ym.a = w.ym.a || []).push(arguments); };
+  w.ym.l = Date.now();
+  w.ym(METRIKA_ID, 'init', { defer: true, clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: false });
+  const load = () => {
+    if (document.querySelector(`script[src="${METRIKA_SRC}"]`)) return;
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = METRIKA_SRC;
+    document.head.appendChild(s);
+  };
+  afterLoad().then(load);
+}
+const noSearch = (u) => { try { const x = new URL(u); return x.origin + x.pathname; } catch (e) { return ''; } };
+function metrikaHit() {
+  if (parseRoute(location.pathname).name === 'admin') return;
+  const url = location.origin + location.pathname;
+  if (url === lastHit) return;
+  metrikaStart();
+  const referer = lastHit || (document.referrer.startsWith(location.origin) ? noSearch(document.referrer) : document.referrer);
+  window.ym(METRIKA_ID, 'hit', url, { title: document.title, referer });
+  lastHit = url;
+}
+
+/* ---------------- плашка о cookies ----------------
+   Вне #app, поверх страницы (position: fixed), под читалкой. Закрытие помнит localStorage. */
+const COOKIE_KEY = 'triton_cookies_ok';
+let cookieEl = null, cookieClosed = false;
+function cookieBar(show) {
+  let closed = cookieClosed;
+  try { closed = closed || localStorage.getItem(COOKIE_KEY) === '1'; } catch (e) { /* покажем плашку */ }
+  if (!show || closed) { if (cookieEl) cookieEl.hidden = true; return; }
+  if (!cookieEl) {
+    cookieEl = document.createElement('div');
+    cookieEl.className = 'cookie';
+    cookieEl.setAttribute('role', 'region');
+    document.body.appendChild(cookieEl);
+  }
+  cookieEl.setAttribute('aria-label', t('cookieLabel'));
+  setHtml(cookieEl, `<p class="cookie-t">${esc(t('cookieText'))}</p><button type="button" class="cookie-b" data-cookie-ok>${esc(t('cookieOk'))}</button>`);
+  cookieEl.hidden = false;
 }
 
 function navigate(to, { replace = false } = {}) {
@@ -1020,6 +1087,12 @@ document.addEventListener('click', (e) => {
   }
   if (el.closest('[data-retry]')) { invalidateIssues(); current = null; render({}); return; }
   if (el.closest('[data-reload]')) { location.reload(); return; }
+  if (el.closest('[data-cookie-ok]')) {
+    cookieClosed = true;
+    try { localStorage.setItem(COOKIE_KEY, '1'); } catch (err) { /* закроется до перезагрузки */ }
+    if (cookieEl) cookieEl.hidden = true;
+    return;
+  }
   if (el.closest('[data-fs]') && readerEl) {
     if (!fsActive()) { const req = readerEl.requestFullscreen || readerEl.webkitRequestFullscreen; if (req) { const p = req.call(readerEl); if (p && p.catch) p.catch(() => {}); } }
     else (document.exitFullscreen || document.webkitExitFullscreen).call(document);

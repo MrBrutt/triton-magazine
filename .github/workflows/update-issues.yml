@@ -1,0 +1,55 @@
+name: Обновление выпусков из базы
+
+# Раз в сутки (и по кнопке) берёт выпуски из Firestore, пересобирает страницы и, если что-то
+# изменилось, коммитит в main. Базу только читает: tools/fetch_issues.py, REST без входа.
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 03:17 UTC = 06:17 по Москве
+  workflow_dispatch:
+
+permissions:
+  contents: write   # коммит в main
+  pages: write      # запуск сборки GitHub Pages
+
+concurrency:
+  group: update-issues
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # Только main: ручной запуск из другой ветки ничего не делает.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install Pillow
+      - name: Выпуски из базы
+        run: python3 tools/fetch_issues.py
+      - name: Страницы
+        run: python3 tools/build_pages.py
+      - name: Коммит в main
+        id: commit
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Ничего не изменилось."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Выпуски из базы: обновлены data/issues.json и страницы'
+          git push origin HEAD:main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      # Коммит через GITHUB_TOKEN не запускает сборку Pages сам, поэтому просим её явно.
+      - name: Сборка GitHub Pages
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
