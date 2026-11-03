@@ -1,5 +1,5 @@
 // Вход для редакции. Firebase Auth и Firestore подменены заглушками из tests/stubs/.
-import { test, expect, settled } from './fixtures.js';
+import { test, expect, settled, N } from './fixtures.js';
 
 test.describe('форма входа', () => {
   test.skip(({ isMobile }) => isMobile, 'хватает одного экрана');
@@ -40,7 +40,7 @@ test.describe('форма входа', () => {
     await page.locator('#pw').fill('secret');
     await page.getByRole('button', { name: 'Войти' }).click();
     await expect(page.locator('.adm')).toBeVisible();
-    await expect(page.locator('#list-count')).toContainText('10');
+    await expect(page.locator('#list-count')).toContainText(String(N));
     await settled(page);
     expect(firebaseLog.filter((x) => x.includes('gstatic.com')).sort()).toEqual([
       'GET www.gstatic.com/firebasejs/10.8.0/firebase-app.js',

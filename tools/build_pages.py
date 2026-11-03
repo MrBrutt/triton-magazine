@@ -607,6 +607,14 @@ def main():
                 breadcrumbs(('Тритон', '/'), ('Все выпуски', '/issues/'), (f'№{n}. {title}', issue_path(n)))], **common)
     for rel, text in pages.items():
         write(rel, text)
+    # Номер убрали из данных: его старая страница не должна остаться на сайте.
+    for old in sorted((ROOT / 'issues').glob('*/index.html')):
+        rel = old.relative_to(ROOT).as_posix()
+        if re.fullmatch(r'issues/\d+/index\.html', rel) and rel not in pages:
+            old.unlink()
+            if not any(old.parent.iterdir()):
+                old.parent.rmdir()
+            print('удалена', rel)
     urls = ['/', '/issues/', '/about/'] + [issue_path(x['n']) for x in items]
     write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
           + ''.join(f'  <url><loc>{SITE}{u}</loc></url>\n' for u in urls) + '</urlset>\n')

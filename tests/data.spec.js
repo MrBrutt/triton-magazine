@@ -1,5 +1,5 @@
 // Откуда сайт берёт выпуски: сохранённая копия, база, и что бывает, когда база молчит.
-import { test, expect, settled, ISSUES } from './fixtures.js';
+import { test, expect, settled, ISSUES, N, LATEST, NEW_N, newIssue, issuesRu } from './fixtures.js';
 
 test.describe('без Firebase', () => {
   test.use({ firebase: { issues: ISSUES, down: true } });
@@ -8,7 +8,7 @@ test.describe('без Firebase', () => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto('/');
-    await expect(page.locator('h1')).toHaveText('Сотрудничество — условие прогресса');
+    await expect(page.locator('h1')).toHaveText(LATEST.titleView);
     await settled(page);
     await page.locator('.nav a, #menu a').filter({ hasText: 'Выпуски' }).first().evaluate((a) => a.click());
     await expect(page.locator('#grid .card')).toHaveCount(ISSUES.length);
@@ -17,7 +17,7 @@ test.describe('без Firebase', () => {
     await page.locator('#grid .card').first().click();
     await expect(page.locator('h1')).toHaveText('Истоки');
     await page.goto('/about/');
-    await expect(page.locator('#hist-h')).toHaveText('Пять лет, десять номеров');
+    await expect(page.locator('#hist-h')).toHaveText(`Пять лет, ${issuesRu(N)}`);
     expect(firebaseLog.length).toBeGreaterThan(0); // сайт пытался, но запросы оборвались
     expect(errors).toEqual([]);
   });
@@ -34,14 +34,15 @@ test.describe('без Firebase', () => {
 
 test.describe('в базе новее, чем в копии', () => {
   const live = [...ISSUES.map((x) => (x.date === '2026-07' ? { ...x, desc: 'Новое описание из админки.', toc: '3 Новый раздел' } : x)),
-    { id: 'issue-11', title: 'Одиннадцатый', date: '2027-01', desc: 'Свежий номер.', pdfUrl: 'https://drive.google.com/file/d/abc/view', coverUrl: '', uploadedAt: '2027-01-20T10:00:00.000Z' }];
+    newIssue({ pdfUrl: 'https://drive.google.com/file/d/abc/view' })];
   test.use({ firebase: { issues: live, announcement: { enabled: false } } });
 
   test('страница перерисовывается данными из базы', async ({ page }) => {
+    await page.route(/drive\.google\.com\/thumbnail/, (r) => r.fulfill({ status: 404, body: '' }));
     await page.goto('/');
-    await expect(page.locator('h1')).toHaveText('Одиннадцатый');
-    await expect(page.locator('.badge b')).toHaveText('Выпуск №11');
-    // Обложки нет на сайте и в Диске: цветная заглушка с номером.
+    await expect(page.locator('h1')).toHaveText('Новый номер из базы');
+    await expect(page.locator('.badge b')).toHaveText(`Выпуск №${NEW_N}`);
+    // Обложки нет на сайте, а из Диска она не загрузилась: цветная заглушка с номером.
     await expect.poll(() => page.locator('.hero-cv img').getAttribute('src')).toMatch(/^data:image\/svg\+xml/);
 
     await page.goto('/issues/10/');
@@ -71,10 +72,10 @@ test.describe('в базе новее, чем в копии', () => {
       };
       requestAnimationFrame(tick);
     });
-    await page.goto('/issues/11/');
-    await expect(page.locator('h1')).toHaveText('Одиннадцатый');
+    await page.goto(`/issues/${NEW_N}/`);
+    await expect(page.locator('h1')).toHaveText('Новый номер из базы');
     await settled(page);
-    expect(await page.evaluate(() => window.__seen)).toEqual(['Одиннадцатый']);
+    expect(await page.evaluate(() => window.__seen)).toEqual(['Новый номер из базы']);
   });
 
   test.describe('на телефоне', () => {
@@ -108,7 +109,7 @@ test.describe('объявление', () => {
     await page.goto('/about/');
     const ann = page.getByRole('region', { name: 'Объявление' });
     await expect(ann).toContainText('Тест. Объявление из базы.');
-    await expect(ann.locator('.ann-b')).toHaveAttribute('href', '/issues/10/');
+    await expect(ann.locator('.ann-b')).toHaveAttribute('href', `/issues/${LATEST.n}/`);
     await ann.getByRole('button', { name: 'Закрыть объявление' }).click();
     await expect(ann).toHaveCount(0);
     await page.reload();

@@ -64,3 +64,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
+      # GitHub выключает расписание в публичном репозитории после 60 дней без активности, а номера выходят
+      # дважды в год. Если последний коммит в main старше 50 дней, пушим пустой коммит. Шаг работает и тогда,
+      # когда данные не изменились или прошлые шаги упали (например, база не ответила).
+      - name: Не дать расписанию выключиться
+        if: ${{ !cancelled() }}
+        run: |
+          git fetch -q origin main
+          last=$(git log -1 --format=%ct origin/main)
+          age=$(( ($(date +%s) - last) / 86400 ))
+          echo "Последний коммит в main: $age дн. назад."
+          if [ "$age" -lt 50 ]; then exit 0; fi
+          git worktree add -q --detach "$RUNNER_TEMP/keepalive" origin/main
+          cd "$RUNNER_TEMP/keepalive"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -q --allow-empty -m "Автообновление: пустой коммит, чтобы GitHub не выключил расписание (в main $age дн. без коммитов)"
+          git push origin HEAD:main

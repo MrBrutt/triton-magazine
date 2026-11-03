@@ -1,6 +1,6 @@
 // Яндекс.Вебмастер, Яндекс.Метрика, плашка о cookies, награда на «О журнале».
 // tag.js в тестах не грузится (внешние запросы обрываются), поэтому вызовы Метрики видны в очереди window.ym.a.
-import { test, expect, settled, ISSUES } from './fixtures.js';
+import { test, expect, settled, ISSUES, LATEST, NEW_N, newIssue } from './fixtures.js';
 
 const ORIGIN = 'http://127.0.0.1:4173';
 const calls = (page) => page.evaluate(() => (window.ym?.a || []).map((a) => Array.from(a)));
@@ -90,15 +90,15 @@ test.describe('Яндекс.Метрика', () => {
 
 test.describe('Метрика: номер есть только в базе, база отвечает медленно', () => {
   test.skip(({ isMobile }) => isMobile, 'хватает одного экрана');
-  const live = [...ISSUES, { id: 'new-11', title: 'Одиннадцатый', date: '2027-01', desc: 'Свежий номер.', pdfUrl: '', coverUrl: '', uploadedAt: '2027-01-20T10:00:00.000Z' }];
+  const live = [...ISSUES, newIssue()];
   test.use({ firebase: { issues: live, announcement: { enabled: false } } });
 
   test('просмотр отправляется ровно один раз и с настоящим заголовком', async ({ page }) => {
     await page.route('https://firestore.googleapis.com/**', async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.fallback(); });
-    await page.goto('/issues/11/');
-    await expect(page.locator('h1')).toHaveText('Одиннадцатый');
+    await page.goto(`/issues/${NEW_N}/`);
+    await expect(page.locator('h1')).toHaveText('Новый номер из базы');
     await settled(page);
-    expect(await hits(page)).toEqual([{ url: `${ORIGIN}/issues/11/`, title: '№11. Одиннадцатый — Тритон', referer: '' }]);
+    expect(await hits(page)).toEqual([{ url: `${ORIGIN}/issues/${NEW_N}/`, title: `№${NEW_N}. Новый номер из базы — Тритон`, referer: '' }]);
   });
 });
 

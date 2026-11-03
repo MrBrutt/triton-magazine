@@ -1,6 +1,6 @@
 // Готовая вёрстка из build_pages.py должна совпадать с тем, что рисует app.js,
 // а app.js не должен её трогать: тогда при загрузке ничего не прыгает.
-import { test, expect, settled, ISSUES } from './fixtures.js';
+import { test, expect, settled, ISSUES, LATEST, NEW_N, newIssue } from './fixtures.js';
 
 const PAGES = ['/', '/issues/', '/about/', '/does-not-exist/', ...ISSUES.map((_, i) => `/issues/${i + 1}/`)];
 const PARTS = ['#hdr', '#menu', '#main', '#ftr'];
@@ -70,5 +70,5 @@ test('RSS: ссылка в шапке и все номера в ленте', asy
     const doc = new DOMParser().parseFromString(s, 'application/xml');
     return { error: !!doc.querySelector('parsererror'), first: doc.querySelector('item > title')?.textContent };
   }, xml);
-  expect(parsed).toEqual({ error: false, first: '№10. Сотрудничество — условие прогресса' });
+  expect(parsed).toEqual({ error: false, first: `№${LATEST.n}. ${LATEST.titleView}` });
 });

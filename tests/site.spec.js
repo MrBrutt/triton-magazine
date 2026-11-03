@@ -1,7 +1,8 @@
-import { test, expect, settled, ISSUES } from './fixtures.js';
+import { test, expect, settled, N, LATEST, LIST, YEARS, byN, issuesRu, cap, monthRu } from './fixtures.js';
 
-const N = ISSUES.length;
-const LATEST = 'Сотрудничество — условие прогресса';
+// Ожидания про «последний номер» и их число берутся из data/issues.json (см. fixtures.js);
+// тесты про конкретный №10 проверяют его собственные тексты.
+const T10 = 'Сотрудничество — условие прогресса';
 
 /* Ошибки в консоли — повод упасть: сайт не должен сыпать ими даже без базы. */
 const consoleErrors = new WeakMap();
@@ -18,12 +19,11 @@ test.afterEach(async ({ page }) => {
 test('главная: свежий номер, полка, о журнале', async ({ page, firebaseLog }) => {
   await page.goto('/');
   await expect(page).toHaveTitle('Тритон — журнал студентов Международной гимназии Сколково');
-  await expect(page.locator('h1')).toHaveText(LATEST);
-  await expect(page.locator('.badge')).toContainText('Выпуск №10');
-  await expect(page.locator('.hero-cv img')).toHaveAttribute('alt', /Обложка №10/);
-  await expect(page.locator('.hero .acts a').first()).toHaveAttribute('href', '/issues/10/read/');
+  await expect(page.locator('h1')).toHaveText(LATEST.titleView);
+  await expect(page.locator('.badge')).toContainText(`Выпуск №${LATEST.n}`);
+  await expect(page.locator('.hero-cv img')).toHaveAttribute('alt', new RegExp(`Обложка №${LATEST.n}`));
+  await expect(page.locator('.hero .acts a').first()).toHaveAttribute('href', /^https:/.test(LATEST.pdfUrl || '') ? `/issues/${LATEST.n}/read/` : `/issues/${LATEST.n}/`);
   await expect(page.locator('.shelf .card')).toHaveCount(N - 1);
-  await expect(page.locator('#toc-h')).toHaveText('В номере');
   await expect(page.locator('#about-h')).toHaveText('О журнале');
   await settled(page);
   // Посетителю SDK Firebase не нужен: только REST-запросы к базе.
@@ -31,13 +31,13 @@ test('главная: свежий номер, полка, о журнале', a
   expect(firebaseLog.some((x) => x.includes(':runQuery'))).toBe(true);
 });
 
-test('главная: обложка в WebP, JPG остаётся запасным', async ({ page }) => {
-  await page.goto('/');
-  const img = page.locator('.hero-cv img');
+test('обложка в WebP, JPG остаётся запасным', async ({ page }) => {
+  await page.goto('/issues/10/');
+  const img = page.locator('.ihero-cv img');
   await expect(img).toHaveJSProperty('complete', true);
   expect(await img.evaluate((el) => el.currentSrc)).toMatch(/\/covers\/10(-360)?\.webp$/);
   await expect(img).toHaveAttribute('src', '/covers/10.jpg');
-  await expect(page.locator('.hero-cv source')).toHaveAttribute('type', 'image/webp');
+  await expect(page.locator('.ihero-cv source')).toHaveAttribute('type', 'image/webp');
 });
 
 test('обложка WebP не загрузилась: показывается JPG', async ({ page }) => {
@@ -50,10 +50,10 @@ test('обложка WebP не загрузилась: показывается 
 test('список номеров: все выпуски и годы', async ({ page }) => {
   await page.goto('/issues/');
   await expect(page).toHaveTitle('Все выпуски — Тритон');
-  await expect(page.locator('#since')).toHaveText('Десять номеров с октября 2021 года.');
+  await expect(page.locator('#since')).toHaveText(`${cap(issuesRu(N))} с октября 2021 года.`);
   await expect(page.locator('#grid .card')).toHaveCount(N);
-  await expect(page.locator('#grid .card').first()).toContainText('№10, июль 2026 · новый');
-  await expect(page.locator('.chip')).toHaveText(['Все', '2026', '2025', '2024', '2023', '2022', '2021']);
+  await expect(page.locator('#grid .card').first()).toContainText(`№${LATEST.n}, ${monthRu(LATEST.date)} · новый`);
+  await expect(page.locator('.chip')).toHaveText(['Все', ...YEARS.map(String)]);
   await expect(page.locator('#found')).toHaveText(`Найдено: ${N}`);
 });
 
@@ -97,14 +97,14 @@ test('поиск открывается по ссылке с параметра�
 
 test('страница номера: описание, содержание, цитата, соседние номера', async ({ page }) => {
   await page.goto('/issues/10/');
-  await expect(page).toHaveTitle(`№10. ${LATEST} — Тритон`);
-  await expect(page.locator('h1')).toHaveText(LATEST);
+  await expect(page).toHaveTitle(`№10. ${T10} — Тритон`);
+  await expect(page.locator('h1')).toHaveText(T10);
   await expect(page.locator('.ihero .meta').first()).toHaveText('Выпуск №10 · июль 2026');
   await expect(page.locator('.toc li')).toHaveCount(6);
   await expect(page.locator('.toc li').first()).toContainText('Литературные герои на приёме у психолога');
   await expect(page.locator('.quote blockquote')).toContainText('«Тритон растет вместе со студентами');
-  await expect(page.locator('.pn-a')).toHaveCount(1);
-  await expect(page.locator('.pn-a')).toHaveAttribute('href', '/issues/9/');
+  await expect(page.locator('.pn-a')).toHaveCount(byN(11) ? 2 : 1);
+  await expect(page.locator('.pn-a').first()).toHaveAttribute('href', '/issues/9/');
   await expect(page.locator('a.btn-o[href*="drive.google.com"]')).toHaveAttribute('target', '_blank');
 
   await page.goto('/issues/5/');
@@ -116,13 +116,14 @@ test('переходы по сайту без перезагрузки', async (
   await page.goto('/');
   await settled(page);
   await page.evaluate(() => { window.__same = true; });
+  const [latest, second] = LIST;
   await page.locator('.shelf .card').first().click();
-  await expect(page).toHaveURL(/\/issues\/9\/$/);
-  await expect(page.locator('h1')).toHaveText('Когда учится машина');
+  await expect(page).toHaveURL(new RegExp(`/issues/${second.n}/$`));
+  await expect(page.locator('h1')).toHaveText(second.titleView);
   await page.locator('.pn-a', { hasText: 'Следующий номер' }).click();
-  await expect(page).toHaveURL(/\/issues\/10\/$/);
+  await expect(page).toHaveURL(new RegExp(`/issues/${latest.n}/$`));
   await page.goBack();
-  await expect(page.locator('h1')).toHaveText('Когда учится машина');
+  await expect(page.locator('h1')).toHaveText(second.titleView);
   expect(await page.evaluate(() => window.__same)).toBe(true);
 });
 
@@ -134,7 +135,7 @@ test('читалка: открывается поверх номера и зак
   const reader = page.getByRole('dialog', { name: 'Выпуск №10, читалка' });
   await expect(reader).toBeVisible();
   await expect(reader.locator('iframe')).toHaveAttribute('src', 'https://drive.google.com/file/d/1-NGpdotq6chwGty0tU-z_zsjYlbm5yU2/preview');
-  await expect(reader.locator('.rdr-title')).toHaveText(`№10 · ${LATEST}`);
+  await expect(reader.locator('.rdr-title')).toHaveText(`№10 · ${T10}`);
   await expect(reader.locator('.rdr-back')).toBeFocused();
   expect(await page.locator('#app').evaluate((el) => el.inert)).toBe(true);
   await page.keyboard.press('Escape');
@@ -169,8 +170,8 @@ test('читалка по прямой ссылке, кнопка «К выпу�
 test('о журнале: история по годам, редакция, как попасть', async ({ page }) => {
   await page.goto('/about/');
   await expect(page).toHaveTitle('О журнале — Тритон');
-  await expect(page.locator('#hist-h')).toHaveText('Пять лет, десять номеров');
-  await expect(page.locator('.yr h3')).toHaveText(['2021', '2022', '2023', '2024', '2025', '2026']);
+  await expect(page.locator('#hist-h')).toHaveText(`Пять лет, ${issuesRu(N)}`);
+  await expect(page.locator('.yr h3')).toHaveText([...YEARS].reverse().map(String));
   await expect(page.locator('.yr a')).toHaveCount(N);
   await expect(page.locator('.person')).toContainText(['Главный редакторУмар Гаджикулиев']);
   await expect(page.locator('#join a[href="https://t.me/god_fa1her"]')).toBeVisible();
@@ -194,7 +195,7 @@ test('404: неизвестный адрес и номер, которого н�
 
   await page.goto('/issues/99/');
   await expect(page.locator('h1')).toHaveText('Выпуска №99 нет');
-  await expect(page.locator('.nf p')).toHaveText('На сайте десять номеров. Выберите выпуск из списка.');
+  await expect(page.locator('.nf p')).toHaveText(`На сайте ${issuesRu(N)}. Выберите выпуск из списка.`);
 });
 
 test('английская версия', async ({ page }) => {
