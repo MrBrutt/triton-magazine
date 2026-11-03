@@ -24,6 +24,7 @@ body{margin:0;background:#FFFFFF;color:var(--ink);font:400 18px/1.55 var(--body)
 h1,h2,h3,p,figure,blockquote,ul,ol,dl,dd,fieldset{margin:0}
 ul,ol{padding:0}
 img{max-width:100%}
+picture{display:contents}
 a{color:var(--ink)}
 a:hover{color:var(--violet)}
 button{font:inherit;color:inherit}

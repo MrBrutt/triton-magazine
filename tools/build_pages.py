@@ -1,32 +1,70 @@
 #!/usr/bin/env python3
-"""Собирает HTML-оболочки страниц сайта «Тритон».
+"""Собирает HTML-страницы сайта «Тритон» из data/issues.json.
 
-Сайт работает как одно приложение (app.js), но у каждой важной страницы есть свой
-файл с заголовком и описанием для поиска и превью в Telegram:
+Сайт работает как одно приложение (app.js), но у каждой важной страницы есть свой файл
+с готовой вёрсткой, заголовком, описанием и разметкой schema.org:
   /index.html, /issues/index.html, /issues/N/index.html, /about/index.html,
-  /admin/index.html, /404.html (для всех остальных адресов), sitemap.xml, robots.txt.
+  /admin/index.html, /404.html (для всех остальных адресов),
+  sitemap.xml, robots.txt, rss.xml и обложки covers/N.webp, covers/N-360.webp.
+
+Вёрстка здесь повторяет шаблоны app.js для русской версии сайта. app.js рисует страницу
+заново и, если разметка совпала, не трогает DOM, так что ничего не прыгает. Поменяли шаблон
+в app.js — поменяйте его и здесь; тест tests/prerender.spec.js сравнит оба варианта.
+
+Константы (цвета, обложки, значения по умолчанию, редакция, значки) берутся прямо из app.js.
 
 Запуск из корня репозитория:  python3 tools/build_pages.py
 Перезапускать после правки app.js / admin.js / app.css (меняется версия файлов)
-и после добавления нового номера (появится его страница /issues/N/).
+и после правки data/issues.json (новый номер получит свою страницу /issues/N/).
+Повторный запуск без правок ничего не меняет: это проверяет CI.
 """
-import hashlib, html, json, pathlib, re
+import functools, hashlib, html, json, pathlib, re, urllib.parse
+from email.utils import format_datetime
+from datetime import datetime, timezone, timedelta
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SITE = 'https://triton-skolkovo.ru'
-# Цвета номеров по умолчанию, как в DEFAULTS в app.js
-COLORS = {1: '#E3D3B5', 2: '#CFC6DE', 3: '#E3D3B5', 4: '#92B0B1', 5: '#E3D3B5', 6: '#D2D2CF',
-          7: '#92B0B1', 8: '#C1D3AD', 9: '#D2D2CF', 10: '#B4C7B6'}
-PALETTE = {'#B4C7B6', '#C1D3AD', '#92B0B1', '#D2D2CF', '#E3D3B5', '#CFC6DE'}
+APP_JS = (ROOT / 'app.js').read_text(encoding='utf-8')
+
+
+def js_const(name):
+    """Значение `const NAME = <строгий JSON>;` из app.js."""
+    m = re.search(r'^const ' + name + r' = ', APP_JS, re.M)
+    if not m:
+        raise SystemExit(f'в app.js нет константы {name}')
+    return json.JSONDecoder().raw_decode(APP_JS, m.end())[0]
+
+
+def js_icons():
+    block = re.search(r'^const ICON = \{\n(.*?)^\};', APP_JS, re.M | re.S)[1]
+    return dict(re.findall(r"^\s+(\w+): '(<svg[^']*)',?$", block, re.M))
+
+
+PALETTE = {p['hex'] for p in js_const('PALETTE')}
+DEFAULT_COLOR = js_const('DEFAULT_COLOR')
+LOCAL_COVERS = js_const('LOCAL_COVERS')
+DEFAULTS = js_const('DEFAULTS')
+TEAM = js_const('TEAM')
+ICON = js_icons()
+COVER_SIZES = js_const('COVER_SIZES')
+TG_URL = re.search(r"^const TG_URL = '([^']+)';", APP_JS, re.M)[1]
+
 MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
 RU1 = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать',
        'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать']
+RU10 = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто']
+JOIN_TEXT = 'Редакция ищет авторов, иллюстраторов, фотографов и верстальщиков. Напишите в Telegram @god_fa1her: расскажите о себе и пришлите пример работы.'
+ROLES = [('Авторы', 'пишут интервью, рассказы и статьи'), ('Иллюстраторы', 'рисуют обложки и картинки к текстам'),
+         ('Фотографы', 'снимают людей и события гимназии'), ('Верстальщики', 'собирают страницы номера')]
+PUBLISHER = 'Международная гимназия Сколково'
 
 e = lambda s: html.escape(str(s), quote=True)
 
 
+# ---------------- помощники, как в app.js ----------------
 def plural(n, one, few, many):
-    a, b = abs(n) % 100, abs(n) % 10
+    a = abs(n) % 100
+    b = a % 10
     if 10 < a < 20:
         return many
     if 1 < b < 5:
@@ -35,49 +73,315 @@ def plural(n, one, few, many):
 
 
 def words(n):
-    return RU1[n] if n < 20 else str(n)
+    if n < 20:
+        return RU1[n]
+    if n < 100:
+        return RU10[n // 10] + (' ' + RU1[n % 10] if n % 10 else '')
+    return str(n)
+
+
+cap = lambda s: s[:1].upper() + s[1:]
+issues_ru = lambda n: f'{words(n)} {plural(n, "номер", "номера", "номеров")}'
+out_ru = lambda n: plural(n, 'вышел', 'вышло', 'вышло')
+s_ = lambda v: v if isinstance(v, str) else ''
+
+
+def ym(d):
+    m = re.fullmatch(r'(\d{4})-(\d{2})', s_(d))
+    return (int(m[1]), int(m[2])) if m and 1 <= int(m[2]) <= 12 else None
 
 
 def month(d):
-    m = re.fullmatch(r'(\d{4})-(\d{2})', d or '')
-    return f'{MONTHS[int(m[2]) - 1]} {m[1]}' if m and 1 <= int(m[2]) <= 12 else (d or '')
+    p = ym(d)
+    return f'{MONTHS[p[1] - 1]} {p[0]}' if p else s_(d)
+
+
+def typo(s):
+    s = s_(s).replace(' - ', ' — ')
+    return re.sub(r'[ \t]*→[ \t]*$', '', s, flags=re.M).strip()
+
+
+def paras(s):
+    return [p.strip() for p in re.split(r'\n+', typo(s)) if p.strip()]
+
+
+def lead_of(s):
+    p = (paras(s) or [''])[0]
+    if len(p) <= 240:
+        return p
+    sent = re.findall(r'[^.!?…]+(?:[.!?…]+[»"”]?|$)\s*', p) or [p]
+    return ''.join(sent[:2]).strip()
+
+
+def parse_toc(s):
+    out = []
+    for line in s_(s).split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        m = re.fullmatch(r'(\d{1,3})[\s.:–—-]+(.+)', line)
+        out.append({'page': m[1], 'title': m[2].strip()} if m else {'page': '', 'title': line})
+    return out
 
 
 def clean_title(s):
-    s = (s or '').strip()
+    s = s_(s).strip()
     m = re.fullmatch(r'"([^"]*)"', s)
     return m[1] if m else s
 
 
-def typo(s):
-    s = re.sub(r' - ', ' — ', s or '')
-    return re.sub(r'[ \t]*→[ \t]*$', '', s, flags=re.M).strip()
+def is_https(u):
+    return isinstance(u, str) and re.fullmatch(r'https://\S+', u.strip(), re.I) is not None
 
 
-def short(s, limit=200):
-    p = typo(s).split('\n')[0].strip()
-    if len(p) <= limit:
-        return p
-    cut = p[:limit]
-    dot = max(cut.rfind('. '), cut.rfind('! '), cut.rfind('? '))
-    return cut[:dot + 1] if dot > 80 else cut.rsplit(' ', 1)[0] + '…'
+def drive_id(u):
+    m = re.search(r'/file/d/([\w-]+)', s_(u), re.A) or re.search(r'[?&]id=([\w-]+)', s_(u), re.A)
+    return m[1] if m else ''
 
 
-def load_issues():
-    raw = json.loads((ROOT / 'data' / 'issues.json').read_text(encoding='utf-8'))
-    raw = [x for x in raw if (x.get('title') or '').strip()]
-    raw.sort(key=lambda x: (x.get('date') or '', x.get('uploadedAt') or ''))
-    for i, x in enumerate(raw):
-        try:
-            n = int(x.get('number') or 0)
-        except (TypeError, ValueError):
-            n = 0
-        x['n'] = n if n > 0 else i + 1
-        x['color'] = x.get('color') if x.get('color') in PALETTE else COLORS.get(x['n'], '#B4C7B6')
-    raw.sort(key=lambda x: -x['n'])
-    return raw
+def cover_src(x):
+    ids = [drive_id(x.get('coverUrl')), drive_id(x.get('pdfUrl'))]
+    local = LOCAL_COVERS.get(ids[0]) or (not is_https(x.get('coverUrl')) and LOCAL_COVERS.get(ids[1]))
+    if local:
+        return f'/covers/{local}.jpg'
+    q = lambda i: 'https://drive.google.com/thumbnail?id=' + urllib.parse.quote(i, safe="-_.!~*'()") + '&sz=w800'
+    if is_https(x.get('coverUrl')):
+        return q(ids[0]) if ids[0] else x['coverUrl'].strip()
+    return q(ids[1]) if ids[1] else ''
 
 
+def placeholder(x):
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297"><rect width="210" height="297" fill="{x.get("color") or DEFAULT_COLOR}"/>'
+           f'<text x="18" y="268" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="44" fill="#2F3B40">№{x.get("n") or ""}</text></svg>')
+    return 'data:image/svg+xml,' + urllib.parse.quote(svg, safe="-_.!~*'()")
+
+
+def js_int(v):
+    m = re.match(r'\s*([+-]?\d+)', str(v)) if v is not None and not isinstance(v, bool) else None
+    return int(m[1]) if m else 0
+
+
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
+def normalize(raw):
+    items = [dict(x) for x in raw if isinstance(x, dict) and s_(x.get('title')).strip()]
+    items.sort(key=functools.cmp_to_key(lambda a, b: cmp(s_(a.get('date')), s_(b.get('date'))) or cmp(s_(a.get('uploadedAt')), s_(b.get('uploadedAt')))))
+    for i, x in enumerate(items):
+        num = js_int(x.get('number'))
+        x['n'] = num if num > 0 else i + 1
+    for x in items:
+        d = DEFAULTS.get(str(x['n']), {})
+        pick = lambda k: x[k] if isinstance(x.get(k), str) else (d.get(k) or '')
+        x['titleView'] = clean_title(x.get('title'))
+        x['color'] = x.get('color') if x.get('color') in PALETTE else (d.get('color') or DEFAULT_COLOR)
+        x['eff'] = {k: pick(k) for k in ('toc', 'quote', 'quoteBy')}
+        x['eff']['coverAlt'] = d.get('coverAlt') or ''
+        x['tocItems'] = parse_toc(x['eff']['toc'])
+        x['desc'] = s_(x.get('desc'))
+    items.sort(key=functools.cmp_to_key(lambda a, b: (b['n'] - a['n']) or cmp(s_(b.get('date')), s_(a.get('date')))))
+    return items
+
+
+# ---------------- шаблоны, как в app.js (русская версия) ----------------
+issue_path = lambda n: f'/issues/{n}/'
+read_path = lambda n: f'/issues/{n}/read/'
+alt_of = lambda x: x['eff']['coverAlt'] or f'Обложка №{x["n"]}'
+pdf_of = lambda x: x['pdfUrl'].strip() if is_https(x.get('pdfUrl')) else ''
+since = lambda n: f'{cap(issues_ru(n))} с октября 2021 года'
+
+
+def ext(href, label, cls):
+    return f'<a class="{cls}" href="{e(href)}" target="_blank" rel="noopener">{label}<span class="sr">{e(", откроется в новой вкладке")}</span></a>'
+
+
+def cover(x, cls='', alt='', eager=False):
+    src, ph = cover_src(x), placeholder(x)
+    load = ' fetchpriority="high"' if eager else ' loading="lazy"'
+    img = f'<img class="cv{" " + cls if cls else ""}" src="{e(src or ph)}" data-ph="{e(ph)}" alt="{e(alt)}" width="420" height="594"{load} decoding="async">'
+    m = re.fullmatch(r'/covers/(\d+)\.jpg', src)
+    if not m:
+        return img
+    n = m[1]
+    return f'<picture><source type="image/webp" srcset="/covers/{n}-360.webp 360w, /covers/{n}.webp 640w" sizes="{COVER_SIZES.get(cls) or COVER_SIZES[""]}">{img}</picture>'
+
+
+def card(x, latest=False):
+    meta = f'№{x["n"]}, {month(x.get("date"))}' + (' · новый' if latest else '')
+    return f'<li><a class="card" href="{issue_path(x["n"])}">{cover(x)}<span class="t">{e(x["titleView"])}</span><span class="m">{e(meta)}</span></a></li>'
+
+
+def toc_sec(x, hint):
+    if not x['tocItems']:
+        return ''
+    pg = lambda it: '<span class="sr">стр. </span>' + e(it['page']) if it['page'] else ''
+    items = ''.join(f'<li><span class="pg">{pg(it)}</span><span class="tt">{e(it["title"])}</span></li>' for it in x['tocItems'])
+    hint_html = '<p>Номера страниц как в журнале.</p>' if hint else ''
+    return f'<section class="sec" aria-labelledby="toc-h"><div class="wrap split"><div class="split-h"><h2 class="h2" id="toc-h">В номере</h2>{hint_html}</div><ol class="toc" role="list">{items}</ol></div></section>'
+
+
+def join_box():
+    return f'<div class="join-box" id="join"><h2 class="h2">Как попасть в редакцию</h2><p>{e(JOIN_TEXT)}</p>{ext(TG_URL, "Написать в редакцию", "btn btn-w")}</div>'
+
+
+def header_html(name):
+    sec = 'page' if name == 'issues' else 'true' if name == 'issue' else ''
+    join = '#join' if name == 'home' else '/about/#join'
+    cur = lambda v: f' aria-current="{v}"' if v else ''
+    return f'''<div class="wrap">
+<a class="mark" href="/" aria-label="Тритон, на главную">тритон</a>
+<nav class="nav" aria-label="Разделы сайта"><a href="/issues/"{cur(sec)}>Выпуски</a><a href="/about/"{cur("page" if name == "about" else "")}>О журнале</a><a href="{join}">Как попасть в редакцию</a></nav>
+<div class="langs" role="group" aria-label="Язык сайта"><button type="button" data-lang="ru" lang="ru" aria-pressed="true">RU</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
+<div class="hdr-m"><button type="button" class="hdr-lang" data-lang="en" aria-label="Switch to English">EN</button><button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Открыть меню">{ICON["burger"]}</button></div>
+</div>'''
+
+
+def menu_html(name):
+    join = '#join' if name == 'home' else '/about/#join'
+    cur = lambda v: ' aria-current="page"' if v else ''
+    return (f'<div class="wrap"><nav aria-label="Разделы сайта"><ul role="list"><li><a href="/issues/"{cur(name == "issues")}>Выпуски</a></li>'
+            f'<li><a href="/about/"{cur(name == "about")}>О журнале</a></li><li><a href="{join}">Как попасть в редакцию</a></li></ul></nav></div>')
+
+
+def footer_html(year):
+    return f'<div class="wrap"><span>Журнал студентов Международной гимназии Сколково, 2021–{year}</span><a href="/admin/">Вход для редакции</a></div>'
+
+
+def not_found_html(h, p):
+    return (f'<section class="nf"><div class="wrap"><h1 class="h1big" tabindex="-1">{e(h)}</h1><p>{e(p)}</p><div class="acts">'
+            '<a class="btn" href="/">На главную</a><a class="btn btn-o" href="/issues/">Все выпуски</a></div></div></section>')
+
+
+def v_home(items):
+    x = items[0]
+    pdf = pdf_of(x)
+    acts = (f'<a class="btn" href="{read_path(x["n"])}">Читать номер</a>{ext(pdf, "PDF на Google Диске", "btn btn-o")}' if pdf
+            else f'<a class="btn" href="{issue_path(x["n"])}">Читать на сайте</a>')
+    hero = f'''<section class="hero"><div class="wrap hero-g">
+<p class="mast">тритон</p>
+<p class="badge"><b>{e(f"Выпуск №{x['n']}")}</b><span>{e(month(x.get("date")))}</span></p>
+<h1 tabindex="-1">{e(x["titleView"])}</h1>
+<p class="lead">{e(lead_of(x["desc"]))}</p>
+<div class="acts">{acts}</div>
+<figure class="hero-cv"><a href="{issue_path(x["n"])}" aria-label="{e(f"Выпуск №{x['n']}")}">{cover(x, "cv-xl", alt_of(x), True)}</a></figure>
+</div></section>'''
+    n = len(items)
+    rest = items[1:]
+    shelf = (f'<section class="shelf" aria-labelledby="all-h"><div class="wrap shelf-h"><h2 class="h2" id="all-h">Все выпуски</h2><p>{e(since(n))}</p>'
+             f'<a class="shelf-all" href="/issues/">Все {n}</a></div><div class="wrap flush"><ul class="grid5" role="list">{"".join(card(y) for y in rest)}</ul></div></section>') if rest else ''
+    about_short = (f'«Тритон» делают студенты Международной гимназии Сколково. Первый номер вышел в октябре 2021 года, с тех пор {out_ru(n)} {words(n)}. '
+                   'В номерах интервью, рассказы, исследования, рисунки и фотографии студентов.')
+    about = f'<section class="about2" aria-labelledby="about-h"><div class="wrap"><div class="col"><h2 class="h2" id="about-h">О журнале</h2><p>{e(about_short)}</p></div>{join_box()}</div></section>'
+    return hero + toc_sec(x, False) + shelf + about
+
+
+def v_issues(items):
+    years = sorted({ym(x.get('date'))[0] for x in items if ym(x.get('date'))}, reverse=True)
+    chip = lambda val, label: f'<button type="button" class="chip" data-year="{val}" aria-pressed="{"true" if val == "" else "false"}">{e(label)}</button>'
+    latest = items[0]['n']
+    return (f'<section class="phero"><div class="wrap"><h1 class="h1big" tabindex="-1">Все выпуски</h1><p id="since">{e(since(len(items)) + ".")}</p></div></section>'
+            f'''<div id="ilist"><section class="filters" aria-label="Поиск и фильтр"><div class="wrap">
+<div class="fsearch"><label class="lbl" for="q">Поиск по выпускам</label><input id="q" class="inp" type="search" name="q" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="Название, номер или год" value=""></div>
+<div class="chips" role="group" aria-label="Год выпуска">{chip("", "Все")}{"".join(chip(y, str(y)) for y in years)}</div>
+<p class="found" id="found" role="status">Найдено: {len(items)}</p>
+</div></section>
+<section class="results" aria-label="Выпуски"><div class="wrap"><ul class="grid5" role="list" id="grid">{"".join(card(x, x["n"] == latest) for x in items)}</ul>
+<div class="state" id="nores" hidden><h2>Ничего не нашлось</h2><p>Попробуйте другое слово или покажите все годы.</p><button type="button" class="btn btn-o" id="reset">Сбросить поиск</button></div></div></section></div>''')
+
+
+def v_issue(items, i):
+    x = items[i]
+    n = x['n']
+    pdf = pdf_of(x)
+    acts = (f'<a class="btn" href="{read_path(n)}">Читать на сайте</a>{ext(pdf, "PDF на Google Диске", "btn btn-o")}' if pdf
+            else '<p class="meta">PDF этого номера пока не добавлен.</p>')
+    desc = ''.join(f'<p>{e(p)}</p>' for p in paras(x['desc']))
+    hero = f'''<section class="ihero"><div class="wrap">
+<nav class="crumbs" aria-label="Вы здесь"><a href="/issues/">Выпуски</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">№{n}</span></nav>
+<div class="ihero-g"><figure class="ihero-cv">{cover(x, "cv-xl", alt_of(x), True)}</figure>
+<div class="ihero-t"><p class="meta">{e(f"Выпуск №{n} · {month(x.get('date'))}")}</p><h1 tabindex="-1">{e(x["titleView"])}</h1>
+<div class="desc">{desc}</div>
+<div class="acts">{acts}<button type="button" class="btn-t" data-copy="{issue_path(n)}">{ICON["link"]}Скопировать ссылку</button></div></div></div></div></section>'''
+    quote = ''
+    q_text, q_by = x['eff']['quote'], x['eff']['quoteBy']
+    if q_text.strip():
+        qq = re.sub(r'\.+$', '', q_text.strip())
+        shown = f'«{qq}»' + ('' if re.search(r'[?!…]$', qq) else '.')
+        cap_html = f'<figcaption>{e(q_by)}</figcaption>' if q_by.strip() else ''
+        quote = f'<section class="quote"><figure class="wrap"><blockquote><p>{e(shown)}</p></blockquote>{cap_html}</figure></section>'
+    prev = items[i + 1] if i + 1 < len(items) else None
+    nxt = items[i - 1] if i > 0 else None
+    pn = lambda y, label: (f'<a class="pn-a" href="{issue_path(y["n"])}">{cover(y, "cv-s", "")}<span><small>{label}</small><b>№{y["n"]} {e("«" + y["titleView"] + "»")}</b></span></a>' if y else '')
+    nav = (f'<nav class="pn" aria-label="Другие номера"><div class="wrap"><div class="pn-l">{pn(prev, "Предыдущий номер")}{pn(nxt, "Следующий номер")}</div>'
+           '<a class="btn btn-o" href="/issues/">Все выпуски</a></div></nav>')
+    return hero + toc_sec(x, True) + quote + nav
+
+
+def v_about(items, years_since):
+    n = len(items)
+    by_year = {}
+    for x in sorted(items, key=lambda x: x['n']):
+        p = ym(x.get('date'))
+        if p:
+            by_year.setdefault(p[0], []).append(x)
+    link = lambda x: f'<a href="{issue_path(x["n"])}">{cover(x, "", "№" + str(x["n"]) + ", " + x["titleView"])}</a>'
+    years = ''.join(f'<div class="yr"><h3>{y}</h3>' + ''.join(link(x) for x in xs) + '</div>' for y, xs in by_year.items())
+    hist_h = f'{cap(words(years_since))} {plural(years_since, "год", "года", "лет")}, {issues_ru(n)}'
+    hist = (f'<section class="hist" aria-labelledby="hist-h"><div class="wrap"><h2 class="h2" id="hist-h">{e(hist_h)}</h2>'
+            '<p class="intro">Журнал придумали студентка и учитель гимназии в 2021 году. Номера выходят зимой и летом, у каждого своя тема.</p>'
+            f'<div class="years">{years}</div></div></section>') if n else ''
+    people = ''.join(f'<li class="person"><span>{e(p["role"]["ru"])}</span><b>{e(p["name"]["ru"])}</b></li>' for p in TEAM)
+    team = (f'<section class="team{"" if n else " hist"}" aria-labelledby="team-h"><div class="wrap"><h2 class="h2" id="team-h">Редакция</h2>'
+            '<p class="intro">Номер собирают студенты разных классов: пишут тексты, рисуют, фотографируют и верстают.</p>'
+            f'<ul class="people" role="list">{people}</ul></div></section>')
+    roles = ''.join(f'<li><b>{e(a)}</b> {e(b)}</li>' for a, b in ROLES)
+    join = (f'<section class="joinsec" id="join" aria-labelledby="join-h"><div class="wrap"><div class="jt"><h2 class="h2" id="join-h">Как попасть в редакцию</h2>'
+            f'<p>{e(JOIN_TEXT)}</p>{ext(TG_URL, "Написать в редакцию", "btn btn-w")}</div><ul class="roles" role="list">{roles}</ul></div></section>')
+    lead = (f'«Тритон» делают студенты Международной гимназии Сколково. С октября 2021 года {out_ru(n)} {issues_ru(n)}: интервью, рассказы, исследования, рисунки и фотографии студентов.'
+            if n else '«Тритон» делают студенты Международной гимназии Сколково. В номерах интервью, рассказы, исследования, рисунки и фотографии студентов.')
+    return f'<section class="ahero"><div class="wrap"><h1 class="h1big" tabindex="-1">О журнале</h1><p>{e(lead)}</p></div></section>' + hist + team + join
+
+
+# ---------------- schema.org ----------------
+PERIODICAL_ID = SITE + '/#periodical'
+
+
+def periodical(items):
+    return {
+        '@type': 'Periodical', '@id': PERIODICAL_ID, 'name': 'Тритон', 'alternateName': 'Triton', 'url': SITE + '/',
+        'description': 'Журнал студентов Международной гимназии Сколково.', 'inLanguage': 'ru', 'startDate': '2021-10',
+        'image': SITE + '/og-image.png', 'publisher': {'@type': 'EducationalOrganization', 'name': PUBLISHER},
+        'hasPart': [{'@id': SITE + issue_path(x['n']) + '#issue'} for x in items],
+    }
+
+
+def publication_issue(x, full=True):
+    d = {'@type': 'PublicationIssue', '@id': SITE + issue_path(x['n']) + '#issue', 'issueNumber': str(x['n']),
+         'name': x['titleView'], 'url': SITE + issue_path(x['n']), 'isPartOf': {'@id': PERIODICAL_ID}}
+    if ym(x.get('date')):
+        d['datePublished'] = x['date']
+    if full:
+        d['inLanguage'] = 'ru'
+        if x['desc']:
+            d['description'] = typo(x['desc'])
+        src = cover_src(x)
+        if src.startswith('/covers/'):
+            d['image'] = SITE + src
+    return d
+
+
+def breadcrumbs(*crumbs):
+    return {'@type': 'BreadcrumbList', 'itemListElement': [
+        {'@type': 'ListItem', 'position': i + 1, 'name': name, 'item': SITE + path} for i, (name, path) in enumerate(crumbs)]}
+
+
+def ld_json(graph):
+    data = json.dumps({'@context': 'https://schema.org', '@graph': graph}, ensure_ascii=False, separators=(',', ':'))
+    return '<script type="application/ld+json">' + data.replace('</', '<\\/') + '</script>'
+
+
+# ---------------- страницы ----------------
 def version():
     h = hashlib.sha1()
     for name in ('app.js', 'admin.js', 'app.css', 'data/issues.json'):
@@ -94,20 +398,25 @@ def image_size(path):
         return None
 
 
-def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', noindex=False, noscript=''):
+def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', noindex=False, admin=False,
+         main='', key='', ld=None, home=False, year=None, name=''):
     url = SITE + path
-    img_path = ROOT / image.lstrip('/')
-    size = (1200, 630) if image == '/og-image.png' else image_size(img_path)
+    size = (1200, 630) if image == '/og-image.png' else image_size(ROOT / image.lstrip('/'))
     meta = [
         f'<meta name="description" content="{e(desc)}">',
         '<meta name="robots" content="noindex">' if noindex else f'<link rel="canonical" href="{e(url)}">',
         f'<meta name="theme-color" content="{e(color)}">',
         '<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">',
         '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+        '<link rel="alternate" type="application/rss+xml" title="Тритон: новые номера" href="/rss.xml">',
         '<link rel="preload" href="/fonts/golos-text-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>',
         '<link rel="preload" href="/fonts/montserrat-cyrillic-800-normal.woff2" as="font" type="font/woff2" crossorigin>',
         '<link rel="preload" href="/fonts/montserrat-cyrillic-900-normal.woff2" as="font" type="font/woff2" crossorigin>',
-        '<link rel="preconnect" href="https://www.gstatic.com" crossorigin>',
+    ]
+    # SDK Firebase нужен только редакции; посетители читают базу через REST.
+    if admin:
+        meta.append('<link rel="preconnect" href="https://www.gstatic.com" crossorigin>')
+    meta += [
         '<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>',
         f'<link rel="stylesheet" href="/app.css?v={v}">',
         f'<script type="module" src="/app.js?v={v}"></script>',
@@ -125,7 +434,15 @@ def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', n
         if size:
             meta += [f'<meta property="og:image:width" content="{size[0]}">', f'<meta property="og:image:height" content="{size[1]}">']
         meta.append(f'<meta name="twitter:card" content="{"summary_large_image" if image == "/og-image.png" else "summary"}">')
+    if ld:
+        meta.append(ld_json(ld))
     head = '\n'.join(meta)
+    if admin:
+        body = '<div id="app"><noscript><div class="wrap" style="padding:32px 20px 48px"><h1>Вход для редакции</h1><p>Для входа нужен JavaScript.</p></div></noscript></div>'
+    else:
+        body = (f'<div id="app" data-kind="public"><a class="skip" href="#main">Перейти к содержанию</a><div id="ann"></div>'
+                f'<header class="hdr" id="hdr">{header_html(name)}</header><div class="menu" id="menu" hidden>{menu_html(name)}</div>'
+                f'<main id="main" tabindex="-1" data-pre="{e(key)}">{main}</main><footer class="ftr" id="ftr">{footer_html(year)}</footer></div>')
     return f'''<!doctype html>
 <html lang="ru" style="--c:{color}">
 <head>
@@ -134,61 +451,165 @@ def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', n
 <title>{e(title)}</title>
 {head}
 </head>
-<body>
-<div id="app"><noscript><div class="wrap" style="padding:32px 20px 48px">{noscript}</div></noscript></div>
+<body{' class="is-home"' if home else ''}>
+{body}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
 '''
 
 
-def write(rel, text):
+def write(rel, data):
     p = ROOT / rel
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text, encoding='utf-8')
+    if isinstance(data, bytes):
+        p.write_bytes(data)
+    else:
+        p.write_text(data, encoding='utf-8')
+
+
+def short(s, limit=200):
+    p = (typo(s).split('\n') or [''])[0].strip()
+    if len(p) <= limit:
+        return p
+    cut = p[:limit]
+    dot = max(cut.rfind('. '), cut.rfind('! '), cut.rfind('? '))
+    return cut[:dot + 1] if dot > 80 else cut.rsplit(' ', 1)[0] + '…'
+
+
+def make_webp():
+    """covers/N.jpg -> covers/N.webp (как есть) и covers/N-360.webp (360 px по ширине).
+    Готовые файлы не пересобираются: другая версия Pillow дала бы другие байты."""
+    try:
+        from PIL import Image
+    except ImportError:
+        print('нет Pillow (pip install Pillow): WebP-обложки не созданы')
+        return
+    for jpg in sorted((ROOT / 'covers').glob('*.jpg')):
+        for out, width in ((jpg.with_suffix('.webp'), None), (jpg.with_name(jpg.stem + '-360.webp'), 360)):
+            if out.exists():
+                continue
+            with Image.open(jpg) as im:
+                im = im.convert('RGB')
+                if width and im.width > width:
+                    im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+                im.save(out, 'WEBP', quality=80, method=6)
+            print('создан', out.relative_to(ROOT))
+
+
+def rss(items, as_of):
+    msk = timezone(timedelta(hours=3))
+
+    def pub(x):
+        p = ym(x.get('date'))
+        return format_datetime(datetime(p[0], p[1], 1, 12, tzinfo=msk)) if p else None
+
+    out = []
+    for x in items:
+        url = SITE + issue_path(x['n'])
+        src = cover_src(x)
+        enc = ''
+        if src.startswith('/covers/') and (ROOT / src.lstrip('/')).exists():
+            enc = f'\n      <enclosure url="{SITE}{src}" length="{(ROOT / src.lstrip("/")).stat().st_size}" type="image/jpeg"/>'
+        date = pub(x)
+        out.append(f'''    <item>
+      <title>{e(f"№{x['n']}. {x['titleView']}")}</title>
+      <link>{url}</link>
+      <guid isPermaLink="true">{url}</guid>{f"{chr(10)}      <pubDate>{date}</pubDate>" if date else ""}
+      <description>{e(typo(x['desc']))}</description>{enc}
+    </item>''')
+    last = format_datetime(as_of.replace(tzinfo=timezone.utc))
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Тритон</title>
+    <link>{SITE}/</link>
+    <description>Журнал студентов Международной гимназии Сколково: новые номера.</description>
+    <language>ru</language>
+    <lastBuildDate>{last}</lastBuildDate>
+    <atom:link href="{SITE}/rss.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>{SITE}/og-image.png</url>
+      <title>Тритон</title>
+      <link>{SITE}/</link>
+    </image>
+{chr(10).join(out)}
+  </channel>
+</rss>
+'''
+
+
+def as_of_date(raw):
+    """Дата, на которую собраны страницы: последняя загрузка номера. Не «сегодня»,
+    чтобы повторная сборка без правок давала те же файлы."""
+    stamps = [s_(x.get('uploadedAt')) for x in raw if re.match(r'\d{4}-\d{2}-\d{2}T', s_(x.get('uploadedAt')))]
+    if stamps:
+        return datetime.strptime(max(stamps)[:19], '%Y-%m-%dT%H:%M:%S')
+    dates = [ym(x.get('date')) for x in raw if ym(x.get('date'))]
+    y, m = max(dates) if dates else (2021, 10)
+    return datetime(y, m, 1)
 
 
 def main():
-    issues = load_issues()
+    raw = json.loads((ROOT / 'data' / 'issues.json').read_text(encoding='utf-8'))
+    items = normalize(raw)
+    if not items:
+        raise SystemExit('в data/issues.json нет выпусков')
+    make_webp()
+    as_of = as_of_date(raw)
+    year = as_of.year
+    years_since = max(1, year - 2021 - (1 if as_of.month < 10 else 0))
     v = version()
-    latest = issues[0]
-    n_all = len(issues)
-    count = f'{words(n_all)} {plural(n_all, "номер", "номера", "номеров")}'
-    nojs = '<p>Для работы сайта нужен JavaScript. Номера можно открыть в PDF:</p><ul>' + ''.join(
-        f'<li><a href="{e(x["pdfUrl"])}">№{x["n"]}. {e(clean_title(x["title"]))}, {e(month(x["date"]))}</a></li>' for x in issues) + '</ul>'
+    latest = items[0]
+    n_all = len(items)
+    count = issues_ru(n_all)
+    common = dict(v=v, year=year)
+    per = periodical(items)
     pages = {
         'index.html': page(path='/', title='Тритон — журнал студентов Международной гимназии Сколково',
                            desc=f'Все {count} журнала «Тритон» с октября 2021 года. Читайте на сайте или скачайте PDF.',
-                           color=latest['color'], v=v, og_title='Тритон — журнал студентов Международной гимназии Сколково',
-                           noscript='<h1>Тритон</h1><p>Журнал студентов Международной гимназии Сколково.</p>' + nojs),
+                           color=latest['color'], og_title='Тритон — журнал студентов Международной гимназии Сколково',
+                           main=v_home(items), key='home', name='home', home=True,
+                           ld=[{'@type': 'WebSite', '@id': SITE + '/#website', 'name': 'Тритон', 'url': SITE + '/', 'inLanguage': 'ru',
+                                'about': {'@id': PERIODICAL_ID}}, per, publication_issue(latest)], **common),
         'issues/index.html': page(path='/issues/', title='Все выпуски — Тритон', og_title='Все выпуски «Тритона»',
-                                  desc=f'{count.capitalize()} журнала студентов Международной гимназии Сколково с октября 2021 года. Поиск по названию, номеру и году.',
-                                  color=latest['color'], v=v, noscript='<h1>Все выпуски</h1>' + nojs),
+                                  desc=f'{cap(count)} журнала студентов Международной гимназии Сколково с октября 2021 года. Поиск по названию, номеру и году.',
+                                  color=latest['color'], main=v_issues(items), key='issues', name='issues',
+                                  ld=[{'@type': 'CollectionPage', 'name': 'Все выпуски', 'url': SITE + '/issues/', 'inLanguage': 'ru',
+                                       'isPartOf': {'@id': SITE + '/#website'}, 'about': {'@id': PERIODICAL_ID},
+                                       'mainEntity': {'@type': 'ItemList', 'numberOfItems': n_all, 'itemListElement': [
+                                           {'@type': 'ListItem', 'position': i + 1, 'item': publication_issue(x, full=False)} for i, x in enumerate(items)]}},
+                                      per, breadcrumbs(('Тритон', '/'), ('Все выпуски', '/issues/'))], **common),
         'about/index.html': page(path='/about/', title='О журнале — Тритон', og_title='О журнале «Тритон»',
                                  desc='Кто делает журнал студентов Международной гимназии Сколково и как попасть в редакцию.',
-                                 color=latest['color'], v=v,
-                                 noscript='<h1>О журнале</h1><p>«Тритон» делают студенты Международной гимназии Сколково. Чтобы попасть в редакцию, напишите в Telegram: <a href="https://t.me/god_fa1her">@god_fa1her</a>.</p>'),
+                                 color=latest['color'], main=v_about(items, years_since), key='about', name='about',
+                                 ld=[{'@type': 'AboutPage', 'name': 'О журнале', 'url': SITE + '/about/', 'inLanguage': 'ru', 'about': {'@id': PERIODICAL_ID}},
+                                     per, breadcrumbs(('Тритон', '/'), ('О журнале', '/about/'))], **common),
         'admin/index.html': page(path='/admin/', title='Вход для редакции — Тритон', desc='Вход для редакции журнала «Тритон».',
-                                 color=latest['color'], v=v, noindex=True, noscript='<h1>Вход для редакции</h1><p>Для входа нужен JavaScript.</p>'),
+                                 color=latest['color'], noindex=True, admin=True, **common),
         '404.html': page(path='/404.html', title='Страница не найдена — Тритон', desc='Такой страницы на сайте журнала «Тритон» нет.',
-                         color=latest['color'], v=v, noindex=True, noscript='<h1>Страница не найдена</h1><p><a href="/">На главную</a></p>'),
+                         color=latest['color'], noindex=True, key='notfound', name='notfound',
+                         main=not_found_html('Страница не найдена', 'Возможно, в ссылке опечатка или страница переехала.'), **common),
     }
-    for x in issues:
-        n, title = x['n'], clean_title(x['title'])
-        cover = f'/covers/{n}.jpg' if (ROOT / 'covers' / f'{n}.jpg').exists() else '/og-image.png'
-        desc = short(x.get('desc') or '') or f'Выпуск №{n} журнала «Тритон», {month(x["date"])}.'
+    for i, x in enumerate(items):
+        n, title = x['n'], x['titleView']
+        cover_file = f'/covers/{n}.jpg' if (ROOT / 'covers' / f'{n}.jpg').exists() else '/og-image.png'
+        desc = short(x['desc']) or f'Выпуск №{n} журнала «Тритон», {month(x.get("date"))}.'
         pages[f'issues/{n}/index.html'] = page(
-            path=f'/issues/{n}/', title=f'№{n}. {title} — Тритон', og_title=f'«Тритон» №{n}. {title}', desc=desc,
-            color=x['color'], v=v, image=cover,
-            noscript=f'<h1>№{n}. {e(title)}</h1><p>{e(month(x["date"]))}</p><p>{e(typo(x.get("desc") or ""))}</p><p><a href="{e(x["pdfUrl"])}">PDF на Google Диске</a></p>')
+            path=issue_path(n), title=f'№{n}. {title} — Тритон', og_title=f'«Тритон» №{n}. {title}', desc=desc,
+            color=x['color'], image=cover_file, main=v_issue(items, i), key=f'issue:{n}', name='issue',
+            ld=[publication_issue(x), {'@type': 'Periodical', '@id': PERIODICAL_ID, 'name': 'Тритон', 'url': SITE + '/'},
+                breadcrumbs(('Тритон', '/'), ('Все выпуски', '/issues/'), (f'№{n}. {title}', issue_path(n)))], **common)
     for rel, text in pages.items():
         write(rel, text)
-    urls = ['/', '/issues/', '/about/'] + [f'/issues/{x["n"]}/' for x in issues]
+    urls = ['/', '/issues/', '/about/'] + [issue_path(x['n']) for x in items]
     write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
           + ''.join(f'  <url><loc>{SITE}{u}</loc></url>\n' for u in urls) + '</urlset>\n')
     write('robots.txt', f'User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n')
-    write('.nojekyll', '')
-    print(f'version {v}: {len(pages)} pages, {len(urls)} urls in sitemap')
+    write('rss.xml', rss(items, as_of))
+    if not (ROOT / '.nojekyll').exists():
+        write('.nojekyll', '')
+    print(f'version {v}: {len(pages)} pages, {len(urls)} urls in sitemap, {len(items)} items in rss.xml')
 
 
 if __name__ == '__main__':

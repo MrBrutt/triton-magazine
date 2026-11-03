@@ -1,0 +1,14 @@
+{
+  "name": "triton-magazine",
+  "private": true,
+  "description": "Сайт журнала «Тритон». Сборки нет: npm нужен только для тестов.",
+  "type": "module",
+  "scripts": {
+    "build": "python3 tools/build_pages.py",
+    "serve": "node tests/serve.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
