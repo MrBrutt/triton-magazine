@@ -454,7 +454,6 @@ function loadAnnouncement({ sdk = false } = {}) {
           const snap = await withTimeout(m.getDoc(m.doc(db, 'settings', 'announcement')), 8000);
           return snap.exists() ? { ...ANNOUNCEMENT_FALLBACK, ...snap.data(), source: 'db' } : { ...ANNOUNCEMENT_FALLBACK, source: 'code' };
         }
-        await afterLoad();
         // batchGet, а не GET документа: если объявления в базе нет, ответ 200 с missing, а не 404 в консоли.
         const name = `projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents/settings/announcement`;
         const rows = await restJson(`${FS_REST}:batchGet?key=${FIREBASE_CONFIG.apiKey}`, {
@@ -837,6 +836,7 @@ ${pdf ? `<p class="rdr-note">${esc(t('notLoaded'))} <a href="${esc(pdf)}" target
   document.body.appendChild(readerEl);
   app.inert = true;
   document.documentElement.classList.add('locked');
+  if (cookieEl) cookieEl.inert = true; // плашка вне #app: под читалкой её тоже нельзя достать с клавиатуры
   readerEl.querySelector('.rdr-back').focus();
 }
 function closeReaderDom(restoreFocus = true) {
@@ -846,6 +846,7 @@ function closeReaderDom(restoreFocus = true) {
   readerEl = null;
   readerN = 0;
   app.inert = false;
+  if (cookieEl) cookieEl.inert = false;
   document.documentElement.classList.remove('locked');
   if (restoreFocus) {
     const f = lastFocus && document.contains(lastFocus) ? lastFocus : app.querySelector('main h1');
@@ -901,7 +902,7 @@ async function render(opts = {}) {
   if (!refresh) toggleMenu(false);
   if (current && current.key === key && current.lang === lang && r.name === 'issue') {
     if (r.read) openReader(r.n); else closeReaderDom();
-    if (!refresh) metrikaHit();
+    metrikaHit();
     return;
   }
   if (!(refresh && r.read && readerN === r.n)) closeReaderDom(false);
@@ -959,8 +960,10 @@ async function render(opts = {}) {
     const h = mainEl()?.querySelector('h1');
     if (h) h.focus({ preventScroll: true });
   }
-  // Фоновая перерисовка из базы — не новый просмотр.
-  if (!refresh) metrikaHit();
+  // Один просмотр на адрес: повторная отрисовка того же адреса (фоновая из базы, смена языка) не считается,
+  // а если первая отрисовка не успела отправить просмотр (её перебила фоновая), его отправит эта.
+  // Страница ошибки не считается: просмотр уйдёт после «Попробовать снова».
+  if (!failed) metrikaHit();
 }
 
 /* ---------------- Яндекс.Метрика ----------------
@@ -1090,7 +1093,10 @@ document.addEventListener('click', (e) => {
   if (el.closest('[data-cookie-ok]')) {
     cookieClosed = true;
     try { localStorage.setItem(COOKIE_KEY, '1'); } catch (err) { /* закроется до перезагрузки */ }
-    if (cookieEl) cookieEl.hidden = true;
+    if (cookieEl) {
+      if (cookieEl.contains(document.activeElement)) mainEl()?.focus({ preventScroll: true }); // фокус не пропадает вместе с плашкой
+      cookieEl.hidden = true;
+    }
     return;
   }
   if (el.closest('[data-fs]') && readerEl) {

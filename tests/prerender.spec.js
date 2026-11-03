@@ -4,6 +4,8 @@ import { test, expect, settled, ISSUES } from './fixtures.js';
 
 const PAGES = ['/', '/issues/', '/about/', '/does-not-exist/', ...ISSUES.map((_, i) => `/issues/${i + 1}/`)];
 const PARTS = ['#hdr', '#menu', '#main', '#ftr'];
+// build_pages.py считает год в подвале и «N лет» от последней загрузки номера: те же часы и для app.js.
+const AS_OF = new Date(ISSUES.map((x) => x.uploadedAt || '').sort().at(-1) || '2026-11-03T12:00:00Z');
 
 test.describe('готовая страница', () => {
   test.skip(({ isMobile }) => isMobile, 'разметка одна для всех экранов');
@@ -20,6 +22,7 @@ test.describe('готовая страница', () => {
       expect(before['#main']).not.toBe('');
 
       // 2. Та же страница с app.js. Записываем каждое изменение DOM после разбора HTML.
+      await page.clock.setFixedTime(AS_OF);
       await page.addInitScript(() => {
         window.__mutations = [];
         new MutationObserver((list) => {

@@ -33,6 +33,16 @@ jobs:
         run: python3 tools/fetch_issues.py
       - name: Страницы
         run: python3 tools/build_pages.py
+      # Коммиты от GITHUB_TOKEN не запускают tests.yml, поэтому до пуша проверяем главное на новых данных:
+      # готовая вёрстка совпадает с app.js на всех страницах. Остальные тесты ждут текущие тексты номеров.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Вёрстка совпадает с app.js
+        run: npx playwright test tests/prerender.spec.js -g "готовая страница" --project=desktop
       - name: Коммит в main
         id: commit
         run: |
@@ -45,7 +55,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'Выпуски из базы: обновлены data/issues.json и страницы'
-          git push origin HEAD:main
+          # Если за время работы в main что-то влили, переносим коммит поверх и пробуем ещё раз.
+          git push origin HEAD:main || { git pull --rebase origin main && python3 tools/build_pages.py && git diff --quiet && git push origin HEAD:main; }
           echo "changed=true" >> "$GITHUB_OUTPUT"
       # Коммит через GITHUB_TOKEN не запускает сборку Pages сам, поэтому просим её явно.
       - name: Сборка GitHub Pages

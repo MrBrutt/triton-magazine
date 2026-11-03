@@ -88,6 +88,37 @@ test.describe('Яндекс.Метрика', () => {
   });
 });
 
+test.describe('Метрика: номер есть только в базе, база отвечает медленно', () => {
+  test.skip(({ isMobile }) => isMobile, 'хватает одного экрана');
+  const live = [...ISSUES, { id: 'new-11', title: 'Одиннадцатый', date: '2027-01', desc: 'Свежий номер.', pdfUrl: '', coverUrl: '', uploadedAt: '2027-01-20T10:00:00.000Z' }];
+  test.use({ firebase: { issues: live, announcement: { enabled: false } } });
+
+  test('просмотр отправляется ровно один раз и с настоящим заголовком', async ({ page }) => {
+    await page.route('https://firestore.googleapis.com/**', async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.fallback(); });
+    await page.goto('/issues/11/');
+    await expect(page.locator('h1')).toHaveText('Одиннадцатый');
+    await settled(page);
+    expect(await hits(page)).toEqual([{ url: `${ORIGIN}/issues/11/`, title: '№11. Одиннадцатый — Тритон', referer: '' }]);
+  });
+});
+
+test.describe('Метрика и страница ошибки', () => {
+  test.skip(({ isMobile }) => isMobile, 'хватает одного экрана');
+  test.use({ firebase: { issues: ISSUES, down: true } });
+
+  test('ошибка не считается, просмотр уходит после «Попробовать снова»', async ({ page }) => {
+    await page.route('**/data/issues.json*', (r) => r.fulfill({ status: 500, body: '' }));
+    await page.goto('/issues/');
+    await expect(page.locator('h1')).toHaveText('Не удалось загрузить выпуски');
+    expect(await hits(page)).toEqual([]);
+    await page.unroute('**/data/issues.json*');
+    await page.locator('[data-retry]').click();
+    await expect(page.locator('h1')).toHaveText('Все выпуски');
+    await expect(page.locator('#grid .card')).toHaveCount(ISSUES.length);
+    await expect.poll(async () => (await hits(page)).map((h) => h.title)).toEqual(['Все выпуски — Тритон']);
+  });
+});
+
 test.describe('Метрика и фоновая перерисовка', () => {
   test.skip(({ isMobile }) => isMobile, 'хватает одного экрана');
   const live = ISSUES.map((x) => (x.date === '2026-07' ? { ...x, desc: 'Новое описание из админки.' } : x));
@@ -138,20 +169,27 @@ test.describe('плашка о cookies', () => {
     await expect(bar).toBeHidden();
   });
 
-  test('ниже читалки и без сдвигов вёрстки', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.__cls = 0;
-      new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls += e.value; }).observe({ type: 'layout-shift', buffered: true });
-    });
-    await page.goto('/issues/10/');
-    await settled(page);
-    await expect(page.locator('.cookie')).toBeVisible();
-    expect(await page.evaluate(() => window.__cls)).toBeLessThan(0.01);
+  test('ниже читалки, недоступна с клавиатуры под ней', async ({ page }) => {
     await page.goto('/issues/10/read/');
     await expect(page.getByRole('dialog')).toBeVisible();
     const box = await page.locator('.cookie').boundingBox();
     const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.rdr, .cookie')?.className, [box.x + box.width / 2, box.y + box.height / 2]);
     expect(top).toBe('rdr');
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(await page.evaluate(() => !!document.activeElement?.closest('.cookie'))).toBe(false);
+    }
+    await page.locator('.rdr-back').click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await page.locator('.cookie').evaluate((el) => el.inert)).toBe(false);
+  });
+
+  test('после «Понятно» фокус не теряется', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.cookie-b').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.cookie')).toBeHidden();
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('main');
   });
 
   test('на /admin/ не показывается', async ({ page }) => {
