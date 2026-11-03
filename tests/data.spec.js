@@ -33,7 +33,7 @@ test.describe('без Firebase', () => {
 });
 
 test.describe('в базе новее, чем в копии', () => {
-  const live = [...ISSUES.map((x) => (x.id === 'issue-10' ? { ...x, desc: 'Новое описание из админки.', toc: '3 Новый раздел' } : x)),
+  const live = [...ISSUES.map((x) => (x.date === '2026-07' ? { ...x, desc: 'Новое описание из админки.', toc: '3 Новый раздел' } : x)),
     { id: 'issue-11', title: 'Одиннадцатый', date: '2027-01', desc: 'Свежий номер.', pdfUrl: 'https://drive.google.com/file/d/abc/view', coverUrl: '', uploadedAt: '2027-01-20T10:00:00.000Z' }];
   test.use({ firebase: { issues: live, announcement: { enabled: false } } });
 

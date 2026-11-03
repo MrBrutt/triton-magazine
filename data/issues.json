@@ -6,15 +6,29 @@
   "desc": "Перед вами - первый выпуск журнала «Тритон» и отправная точка большого редакционного проекта. Тема номера - путь: личный, учебный, творческий - первые шаги авторов, их мысли и открытия. Прочитай и пойми, с чего начинался самый первый выпуск →",
   "pdfUrl": "https://drive.google.com/file/d/1iUM36U6tj-C_2md8QXcA5B8MYZXVjiJq/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1q4ybub4LO-Cqy_5PJyrS2reoO5VeUFkm/view?usp=drive_link",
+  "toc": "8 Рутина\n12 Револьвер, или гибель березы\n18 Кошачья дружба\n28 Фиолетовая трава\n33 Чудесный день\n40 Бежать\n51 Рассказ о поиске счастья\n57 Дневник Левиафана\n64 Воющий ветер",
+  "quote": "Тритон — это не просто сухие страницы, это живой, пульсирующий организм",
+  "quoteBy": "Основатель журнала и главный редактор. Из обращения к читателям",
+  "title_en": "The Path",
+  "desc_en": "The first issue of Triton. Its authors explore the path you take in life, at school and in creative work, and share their first steps, thoughts and discoveries.",
+  "quote_en": "Triton is not just dry pages, it is a living, pulsing organism",
+  "quoteBy_en": "Founder and editor-in-chief. From the letter to readers",
   "uploadedAt": "2026-02-17T14:29:54.534Z"
  },
  {
   "id": "zQBeUizGNYCUqCFKO8uZ",
-  "title": "\"Лед, до встречи!\"",
+  "title": "Лед, до встречи!",
   "date": "2022-02",
   "desc": "Второй выпуск «Тритона» расширяет тематический диапазон журнала - от культуры и искусства до интервью и школьной жизни, собирая разные голоса и взгляды внутри редакционного пространства.\n\nОткрой выпуск и посмотри, чем живёт редакция сегодня!",
   "pdfUrl": "https://drive.google.com/file/d/1XgvRn4p2uHJ5DFTTUSSzk6koO_DptAMd/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1Zacug5Taw20GGVhntOtbSHIFt22NlNHE/view?usp=drive_link",
+  "toc": "7 Лед, до встречи!\n16 Сто лет из жизни дорожного фонаря\n24 13 дней\n34 О странный новый мир\n38 Пылесос\n43 Болевой порог",
+  "quote": "Работа над нашим любимым журналом продолжалась и в зимние каникулы, и в выходные, и во время дружеских чаепитий!",
+  "quoteBy": "Главный редактор. Из слова редактора",
+  "title_en": "See You, Ice!",
+  "desc_en": "In the second issue the editors widened the magazine's range: culture and art, interviews and school life, written by many new voices.",
+  "quote_en": "Work on our favourite magazine went on through the winter holidays, the weekends and our friendly tea parties!",
+  "quoteBy_en": "Editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T08:26:25.455Z"
  },
  {
@@ -24,6 +38,13 @@
   "desc": "Истории людей, которые уже в движении: от балета и искусства до науки, космоса и технологических открытий. Выпуск о выборе направления, дисциплине и шагах, которые формируют личную и профессиональную траекторию.\n\nОткрой выпуск и посмотри, куда ведут их решения →",
   "pdfUrl": "https://drive.google.com/file/d/1K99eh6jHRgaBcEjRlmrUHLLFXqk2_1Q5/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1cZ7jrh5gtv4jGQMC0QckDefPCF5gm_Qv/view?usp=drive_link",
+  "toc": "17 Новый год\n22 Пируэт событий\n30 Пустота\n32 Когда зима сменяет осень\n37 Пароль — твое имя",
+  "quote": "В этом выпуске вы познакомитесь со многими новыми авторами, узнаете о русском балете из первых уст и даже перенесетесь в экзотическую Колумбию",
+  "quoteBy": "Главный редактор. Из слова редактора",
+  "title_en": "A Pirouette of Events",
+  "desc_en": "Stories of people already on the move in ballet, art, science, space and technology. The authors write about choosing a direction, keeping discipline and taking the steps that shape a career.",
+  "quote_en": "In this issue you will meet many new authors, hear about Russian ballet first-hand and even travel to faraway Colombia",
+  "quoteBy_en": "Editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T10:42:25.592Z"
  },
  {
@@ -33,6 +54,13 @@
   "desc": "Четвёртый выпуск - о памяти, опыте и людях, которые нас формируют. В номере: истории о семье и поколениях, интервью с учителем, школьное закулисье, путешествия, рассказы, поэзия и фотопроекты - живой срез ученической жизни и творчества.\n\nОткрой выпуск - и проживи эти истории вместе с нами →",
   "pdfUrl": "https://drive.google.com/file/d/1ws3BIPV9Ya1zhPnc-qF4dPlaoJ4NuAco/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/14GaaZcGd2qztU3fUeHjAMMaUJVBu81oL/view?usp=drive_link",
+  "toc": "6 Пароль — твое имя\n12 Летний калейдоскоп\n13 Ванильное печенье\n22 Пропажа еды\n24 Ода учительнице химии\n26 Повесть о котлете и чае\n32 Может, не умею видеть в людях хорошее…\n34 Однажды поэт, Быть сильным\n36 На физре",
+  "quote": "Проводите время, как нравится только вам! И пусть лето подарит всем много радости и прекрасных впечатлений!",
+  "quoteBy": "Главный редактор. Из слова редактора",
+  "title_en": "Origins",
+  "desc_en": "The fourth issue is about memory, experience and the people who shape us. You'll find family stories across generations, an interview with a teacher, school life behind the scenes, travel notes, short stories, poetry and photo projects.",
+  "quote_en": "Spend your time the way you like! And may the summer bring everyone lots of joy and wonderful memories!",
+  "quoteBy_en": "Editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T10:55:00.693Z"
  },
  {
@@ -42,6 +70,13 @@
   "desc": "Пятый выпуск объединяет творчество, науку и культурные сюжеты: от сказок о Ван-сяу и драконе Баоцзанге до путевых заметок о Китае, школьных эссе, интервью и авторских изобретений. Номер раскрывает тему культурного кода через истории, опыт и воображение учеников. \n\nОткрой выпуск и погрузись в мир идей, культур и историй, созданных голосами нового поколения →",
   "pdfUrl": "https://drive.google.com/file/d/1zkrEebtUcegiIolDqQzoPz-hhdriFMqB/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1I5yvXGNc2uhDFQsbx74moljKLNNnCYtP/view?usp=drive_link",
+  "toc": "8 Сказка про котенка Ван-сяу\n10 Сказка о том, как дракон обрёл дом\n12 Необычный Китай. Путевые заметки\n22 Жизнь как компьютерная игра\n24 Изобретение Антона Борисовича\n25 Вредные советы\n28 Кот и мышь\n34 Стихотворения Харли Фрик",
+  "quote": "Я Гаджикулиев Умар, ваш новый проводник в мир журнала „Тритон“",
+  "quoteBy": "Умар Гаджикулиев, главный редактор. Из слова редактора",
+  "title_en": "Cultural Code: Worlds, Stories, Discoveries",
+  "desc_en": "The fifth issue mixes creative writing, science and culture: fairy tales about a kitten and a little dragon, travel notes from China, school essays, interviews and original inventions. Students explore the cultural code through their own stories and imagination.",
+  "quote_en": "I am Umar Gadzhikuliev, your new guide to the world of Triton",
+  "quoteBy_en": "Umar Gadzhikuliev, editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T10:58:04.451Z"
  },
  {
@@ -51,6 +86,13 @@
   "desc": "Выпуск №6 посвящён тому, как мы ощущаем, тратим и понимаем время: от философских размышлений и исследований до художественных историй и приключений. Внутри - тексты о дружбе и памяти, сказки о часах и духе времени, интервью, поэзия и подборки книг и фильмов, которые заставляют иначе взглянуть на каждую минуту. \n\nОткрой выпуск и проверь, как ты распоряжаешься своим временем - возможно, после него ты начнёшь ценить его совсем по-другому →",
   "pdfUrl": "https://drive.google.com/file/d/1c-itzimKZ5Ph-MYIjmTnDG5W53y9dM2S/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1BzC1aZYFLz-v4TD17lNLyjmzxfTpO3KF/view?usp=drive_link",
+  "toc": "6 Крупицы жизни\n12 Песочные часы\n14 История про мальчика Сашу и Дух времени\n20 Морячок\n21 Приключения капитана Джека Флина\n29 Однажды в мультивселенной\n38 Not forgetting\n45 Исповедь",
+  "quote": "Давайте и мы сделаем наше лето максимально интересным и насыщенным: с хрустящими арбузными дольками, со сплавом по реке, с ночным звездопадом…",
+  "quoteBy": "Умар Гаджикулиев, главный редактор. Из слова редактора",
+  "title_en": "The Value of Time",
+  "desc_en": "Issue 6 asks how you feel, spend and understand time, from philosophy and research to fiction and adventure. You'll find pieces on friendship and memory, fairy tales about clocks, interviews, poetry, and books and films that change how you see a minute.",
+  "quote_en": "Let’s make our summer as interesting and full as we can: crunchy slices of watermelon, rafting down a river, shooting stars at night…",
+  "quoteBy_en": "Umar Gadzhikuliev, editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T11:00:11.960Z"
  },
  {
@@ -60,6 +102,13 @@
   "desc": "Юбилейный выпуск к 10-летию Гимназии объединяет главное, что формирует её среду: интервью с преподавателями, научные достижения студентов, творческие тексты и исследования школьной жизни. Номер показывает гимназию как пространство роста, идей и сильных траекторий. \n\nОткрой юбилейный выпуск - и посмотри, как выглядит среда, в которой формируют будущее →",
   "pdfUrl": "https://drive.google.com/file/d/1pJ7QTLm0c1V1oRe5EImHIvr7m7XhGFqM/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1ip07GGvqDtVPy7-h8Y7dXvYlagz3x2Bd/view?usp=drive_link",
+  "toc": "6 Школа — это навсегда\n15 Сказка к десятилетию Гимназии Сколково\n16 Сказка о волшебном дне самого обычного мальчика\n19 Школа как сказка\n22 Комиксы «Будни Гимназии»\n29 Приключения Джейсона Тюна\n34 Сон в руку",
+  "quote": "„Тритон“ — это пишущие студенты, которые создают тексты, способные удивлять и вдохновлять",
+  "quoteBy": "Директор Гимназии. Из поздравления к десятилетию",
+  "title_en": "Ten Years of the Power of Knowledge",
+  "desc_en": "The editors made this issue for the Gymnasium's tenth anniversary: interviews with teachers, students' research results, creative writing and stories about school life.",
+  "quote_en": "Triton means students who write texts that can surprise and inspire",
+  "quoteBy_en": "Head of the Gymnasium. From the tenth anniversary letter",
   "uploadedAt": "2026-02-18T11:16:38.386Z"
  },
  {
@@ -69,6 +118,13 @@
   "desc": "Восьмой выпуск исследует точку как момент выбора и начала перемен: от цифрового доверия и инвестиций до науки, искусства и личных историй взросления. Это номер о решениях, после которых мышление, траектории и взгляды уже не остаются прежними. \n\nОткрой выпуск - и посмотри, что начинается после точки →",
   "pdfUrl": "https://drive.google.com/file/d/1ClaxolksRw_chjUP9oM6jNManRRkhOYx/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1R9LgMklIw55NrHAaYL7loAqdV81IgKZS/view?usp=drive_link",
+  "toc": "10 Точка встречи\n19 Игра или жизнь?\n23 Рэп «Пророк»\n30 Опасные и прекрасные косатки\n34 Молодёжный сленг\n36 Искусство вязать",
+  "quote": "Пусть этот день станет точкой отсчета к вашему главному успеху!",
+  "quoteBy": "Умар Гаджикулиев, главный редактор. Из слова редактора",
+  "title_en": "The Point",
+  "desc_en": "Issue 8 treats the point as a moment of choice and the start of change: digital trust and investing, science, art and personal stories of growing up. The authors write about decisions that change how you think.",
+  "quote_en": "May this day become the starting point of your greatest success!",
+  "quoteBy_en": "Umar Gadzhikuliev, editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T11:20:26.780Z"
  },
  {
@@ -78,10 +134,17 @@
   "desc": "Выпуск №9 исследует, как искусственный интеллект входит в образовательную среду и меняет сам процесс мышления: от интервью с экспертами и школьных экспериментов до личных размышлений о границе между человеческим и машинным разумом. Номер показывает, как технологии становятся не помощником, а соучастником обучения. \n\nОткрой выпуск - и посмотри, как учёба меняется, когда в неё входит искусственный интеллект →",
   "pdfUrl": "https://drive.google.com/file/d/10xrsK-B4POEk4ZBAYBvxpbbbdup7-Bu_/view?usp=drive_link",
   "coverUrl": "https://drive.google.com/file/d/1URlL9_pE_uklQT_aiWvkodW7VYmDyzG1/view?usp=drive_link",
+  "toc": "6 Ежиная перезагрузка\n9 Не хочу учиться!\n14 Диалог с нейросетью\n38 Операция по спасению огорода\n40 Ложка для обуви\n41 43 секунды",
+  "quote": "Как ИИ может помочь нам реализовывать свои идеи, зарабатывать деньги и развивать страну?",
+  "quoteBy": "Умар Гаджикулиев, главный редактор. Из слова редактора",
+  "title_en": "When the Machine Learns",
+  "desc_en": "Issue 9 looks at how artificial intelligence enters school and changes the way we think: interviews with experts, school experiments and personal essays on the line between human and machine minds. The authors show technology becoming a partner in learning.",
+  "quote_en": "How can AI help us bring our ideas to life, earn money and develop the country?",
+  "quoteBy_en": "Umar Gadzhikuliev, editor-in-chief. From the editor’s letter",
   "uploadedAt": "2026-02-18T11:23:54.405Z"
  },
  {
-  "id": "issue-10",
+  "id": "SlqUl6CNKGhuuhz38QZB",
   "title": "Сотрудничество — условие прогресса",
   "date": "2026-07",
   "desc": "«Тритону» пять лет, и десятый номер редакция посвятила сотрудничеству. Студенты с учителем написали пьесу «Литературные герои на приёме у психолога»: вы начнёте выпуск с её фрагмента. В номере вы найдёте интервью с бизнес-тренером о коммуникации, «Вязаные истории», статью об умных очках Xvision и тексты о международности.",
