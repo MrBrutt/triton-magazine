@@ -49,6 +49,47 @@ test.describe('в базе новее, чем в копии', () => {
     await expect(page.locator('.toc li')).toHaveText(['стр. 3Новый раздел']);
   });
 
+  test('открытая читалка не перезагружается', async ({ page }) => {
+    await page.route('https://firestore.googleapis.com/**', async (r) => { await new Promise((ok) => setTimeout(ok, 800)); await r.fallback(); });
+    await page.goto('/issues/10/read/');
+    const frame = page.locator('.rdr iframe');
+    await expect(frame).toHaveCount(1);
+    await frame.evaluate((el) => { el.dataset.first = '1'; });
+    await expect(page.locator('#main .desc')).toHaveText('Новое описание из админки.');
+    await expect(page.locator('.rdr iframe[data-first="1"]')).toHaveCount(1);
+    await expect(page.locator('.rdr-back')).toBeFocused();
+  });
+
+  test('номер есть в базе, но не в копии: без «Страница не найдена» и «нет»', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__seen = [];
+      const tick = () => {
+        const main = document.getElementById('main');
+        const h = main?.querySelector('h1');
+        if (h && getComputedStyle(main).visibility === 'visible' && window.__seen.at(-1) !== h.textContent) window.__seen.push(h.textContent);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.goto('/issues/11/');
+    await expect(page.locator('h1')).toHaveText('Одиннадцатый');
+    await settled(page);
+    expect(await page.evaluate(() => window.__seen)).toEqual(['Одиннадцатый']);
+  });
+
+  test.describe('на телефоне', () => {
+    test.skip(({ isMobile }) => !isMobile, 'бургер есть только на узком экране');
+    test('открытое меню не закрывается, когда приходят данные из базы', async ({ page }) => {
+      await page.route('https://firestore.googleapis.com/**', async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.fallback(); });
+      await page.goto('/issues/10/');
+      await page.locator('.burger').click();
+      await expect(page.locator('#menu')).toBeVisible();
+      await expect(page.locator('#main .desc')).toHaveText('Новое описание из админки.');
+      await expect(page.locator('#menu')).toBeVisible();
+      await expect(page.locator('.burger')).toHaveAttribute('aria-expanded', 'true');
+    });
+  });
+
   test('поле поиска в фокусе — страница не дёргается', async ({ page }) => {
     await page.route('https://firestore.googleapis.com/**', async (r) => { await new Promise((ok) => setTimeout(ok, 800)); await r.fallback(); });
     await page.goto('/issues/');

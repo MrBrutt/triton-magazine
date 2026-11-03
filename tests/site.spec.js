@@ -144,7 +144,20 @@ test('читалка: открывается поверх номера и зак
 });
 
 test('читалка по прямой ссылке, кнопка «К выпуску»', async ({ page }) => {
+  // Адрес читалки отдаёт 404.html: его «Страница не найдена» не должна мелькать.
+  await page.addInitScript(() => {
+    window.__seen = [];
+    const tick = () => {
+      const main = document.getElementById('main');
+      const h = main?.querySelector('h1');
+      if (h && getComputedStyle(main).visibility === 'visible' && !window.__seen.includes(h.textContent)) window.__seen.push(h.textContent);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   await page.goto('/issues/3/read/');
+  await settled(page);
+  expect(await page.evaluate(() => window.__seen)).not.toContain('Страница не найдена');
   const reader = page.getByRole('dialog', { name: 'Выпуск №3, читалка' });
   await expect(reader).toBeVisible();
   await reader.locator('.rdr-back').click();
@@ -161,6 +174,15 @@ test('о журнале: история по годам, редакция, ка�
   await expect(page.locator('.yr a')).toHaveCount(N);
   await expect(page.locator('.person')).toContainText(['Главный редакторУмар Гаджикулиев']);
   await expect(page.locator('#join a[href="https://t.me/god_fa1her"]')).toBeVisible();
+});
+
+test('404.html не показывает «Страница не найдена» на адресах номера, пока app.js не загрузился', async ({ page }) => {
+  await page.route('**/app.js*', (r) => r.abort());
+  for (const [url, visible] of [['/issues/3/read/', 'hidden'], ['/issues/42/', 'hidden'], ['/no-such-page/', 'visible']]) {
+    await page.goto(url);
+    expect(await page.locator('#main').evaluate((el) => getComputedStyle(el).visibility), url).toBe(visible);
+  }
+  consoleErrors.set(page, []);
 });
 
 test('404: неизвестный адрес и номер, которого нет', async ({ page }) => {

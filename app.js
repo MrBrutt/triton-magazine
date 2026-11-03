@@ -330,19 +330,25 @@ function fromFields(fields) {
   return Object.fromEntries(Object.entries(fields || {}).map(([k, v]) => [k, fromFs(v)]));
 }
 async function restJson(url, init) {
-  const r = await withTimeout(fetch(url, { cache: 'no-store', ...init }), 9000);
-  if (!r.ok) throw new Error(`Firestore: HTTP ${r.status}`);
-  return r.json();
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(new Error('timeout')), 9000);
+  try {
+    const r = await fetch(url, { cache: 'no-store', ...init, signal: ac.signal });
+    if (!r.ok) throw new Error(`Firestore: HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-let issuesP = null, issuesFresh = false, refreshing = false;
+/* issuesGen растёт при каждом сбросе и новой загрузке: опоздавший ответ старой загрузки не перетрёт свежий. */
+let issuesP = null, issuesFresh = false, issuesGen = 0, refreshing = false;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-/* Сравниваем документы целиком: любое поле, поменянное в админке, должно попасть на страницу. */
-const stable = (v) => (Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object'
-  ? `{${Object.keys(v).filter((k) => k !== 'eff' && k !== 'tocItems').sort().map((k) => JSON.stringify(k) + ':' + stable(v[k])).join(',')}}` : JSON.stringify(v ?? null));
-const same = (a, b) => stable(a) === stable(b);
+/* Сравниваем только то, что видно на страницах: лишние поля в базе (например, number: null) не повод перерисовывать. */
+const shownFields = (list) => JSON.stringify(list.map((x) => [x.id, x.n, x.title, x.date, x.desc, x.pdfUrl, x.coverUrl, x.color, x.eff]));
+const same = (a, b) => shownFields(a) === shownFields(b);
 
-/* Выпуски именно с сервера, без кэша браузера. */
+/* Посетители: выпуски с сервера через REST, без кэша браузера. */
 async function fetchLive() {
   const rows = await restJson(`${FS_REST}:runQuery?key=${FIREBASE_CONFIG.apiKey}`, {
     method: 'POST',
@@ -352,6 +358,13 @@ async function fetchLive() {
   if (!Array.isArray(rows)) throw new Error('Firestore: неожиданный ответ');
   return rows.filter((x) => x && x.document).map(({ document: d }) => ({ id: d.name.split('/').pop(), ...fromFields(d.fields) }));
 }
+/* Редакция: через SDK, с правами вошедшего редактора. Именно с сервера: иначе SDK при обрыве связи молча вернёт пустой кэш. */
+async function fetchLiveSdk() {
+  const { m, db } = await firestore();
+  const q = m.query(m.collection(db, 'issues'), m.orderBy('uploadedAt', 'asc'));
+  const snap = await withTimeout((m.getDocsFromServer || m.getDocs)(q), 9000);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
 /* Сохранённая копия: из неё же собраны HTML-страницы. */
 async function fetchSaved() {
   const r = await fetch('/data/issues.json' + (V ? '?v=' + V : ''));
@@ -359,10 +372,11 @@ async function fetchSaved() {
   return r.json();
 }
 /* Посетителям сразу отдаём сохранённую копию, а базу спрашиваем следом (refreshLive).
-   fresh: true (админка и кнопка «Попробовать снова») — сначала база, копия только если база молчит. */
+   fresh: true — для редакции (api.loadIssues): сначала база через SDK, копия, только если база молчит. */
 function loadIssues({ fresh = false } = {}) {
   if (issuesP && (!fresh || issuesFresh)) return issuesP;
   issuesFresh = fresh;
+  const gen = ++issuesGen;
   issuesP = (async () => {
     if (!fresh) {
       try {
@@ -374,45 +388,66 @@ function loadIssues({ fresh = false } = {}) {
       }
     }
     try {
-      return { list: normalize(await fetchLive()), live: true };
+      return { list: normalize(await (fresh ? fetchLiveSdk() : fetchLive())), live: true };
     } catch (error) {
       if (!fresh) throw error;
       console.warn('[Тритон] база не ответила, показываю сохранённую копию выпусков', error);
       const list = normalize(await fetchSaved().catch(() => { throw error; }));
-      refreshLive(list, true);
       return { list, live: false, error };
     }
-  })().catch((e) => { issuesP = null; issuesFresh = false; throw e; });
+  })().catch((e) => { if (gen === issuesGen) { issuesP = null; issuesFresh = false; } throw e; });
   return issuesP;
 }
-/* Пока показана копия, тихо читаем базу; если данные отличаются, перерисовываем страницу. */
-async function refreshLive(shown, afterFail = false) {
+/* Номера нет в сохранённой копии: возможно, его только что добавили в базу. Спрашиваем базу, прежде чем сказать «нет». */
+async function findIssue(n) {
+  const res = await loadIssues();
+  if (res.live || res.list.some((x) => x.n === n)) return res;
+  try {
+    const list = normalize(await fetchLive());
+    if (!list.some((x) => x.n === n)) return res;
+    issuesP = Promise.resolve({ list, live: true });
+    issuesFresh = false;
+    return { list, live: true };
+  } catch (e) {
+    return res;
+  }
+}
+/* Пока показана копия, тихо читаем базу; если на страницах что-то изменится, перерисовываем. */
+async function refreshLive(shown) {
   if (refreshing) return;
   refreshing = true;
+  const gen = issuesGen;
   // Сначала страница догружает обложки и шрифты, потом идём в базу.
   if (document.readyState !== 'complete') await new Promise((r) => window.addEventListener('load', r, { once: true }));
-  for (const wait of afterFail ? [2500, 6000, 15000] : [0, 2500, 6000, 15000]) {
+  for (const wait of [0, 2500, 6000, 15000]) {
     await sleep(wait);
+    if (gen !== issuesGen) break;
     try {
       const list = normalize(await fetchLive());
+      if (gen !== issuesGen) break;
       issuesP = Promise.resolve({ list, live: true });
-      issuesFresh = true;
       if (!same(list, shown) && current && current.name !== 'admin' && !(document.activeElement instanceof HTMLInputElement)) {
         current = null;
-        render({ keepScroll: window.scrollY });
+        render({ keepScroll: window.scrollY, refresh: true });
       }
       break;
     } catch (e) { /* следующая попытка */ }
   }
   refreshing = false;
 }
-function invalidateIssues() { issuesP = null; issuesFresh = false; }
+function invalidateIssues() { issuesP = null; issuesFresh = false; issuesGen++; }
 
 let annP = null;
-function loadAnnouncement() {
-  if (!annP) {
+/* sdk: true — для редакции: читаем с правами вошедшего редактора и всегда заново. */
+function loadAnnouncement({ sdk = false } = {}) {
+  if (!annP || sdk) {
     annP = (async () => {
       try {
+        if (sdk) {
+          const { m, db } = await firestore();
+          const snap = await withTimeout(m.getDoc(m.doc(db, 'settings', 'announcement')), 8000);
+          return snap.exists() ? { ...ANNOUNCEMENT_FALLBACK, ...snap.data(), source: 'db' } : { ...ANNOUNCEMENT_FALLBACK, source: 'code' };
+        }
         // batchGet, а не GET документа: если объявления в базе нет, ответ 200 с missing, а не 404 в консоли.
         const name = `projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents/settings/announcement`;
         const rows = await restJson(`${FS_REST}:batchGet?key=${FIREBASE_CONFIG.apiKey}`, {
@@ -655,7 +690,7 @@ function matches(x, tokens, year) {
 
 async function vIssue(r, stale) {
   skeleton(`<section class="ihero" aria-busy="true"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">${esc(t('noN', r.n))}</span></nav><div class="ihero-g"><div class="ihero-cv"><div class="cv cv-xl sk"></div></div><div class="ihero-t"><p class="meta">${esc(t('issueN', r.n))}</p><p class="sr">${esc(t('loading'))}</p></div></div></div></section>`);
-  const { list } = await loadIssues();
+  const { list } = await findIssue(r.n);
   if (stale()) return null;
   const i = list.findIndex((x) => x.n === r.n);
   if (i < 0) {
@@ -768,7 +803,7 @@ async function openReader(n) {
   if (readerEl && readerN === n) return;
   closeReaderDom(false);
   let x;
-  try { x = (await loadIssues()).list.find((i) => i.n === n); } catch (e) { return; }
+  try { x = (await findIssue(n)).list.find((i) => i.n === n); } catch (e) { return; }
   if (!x || readerEl) return;
   const src = embedUrl(x.pdfUrl);
   const pdf = isHttps(x.pdfUrl) ? x.pdfUrl.trim() : '';
@@ -843,7 +878,8 @@ function parseRoute(path) {
 let renderToken = 0, current = null, renderedPS = '';
 const api = {
   app, esc, str, isHttps, PALETTE, DEFAULT_COLOR, ANNOUNCEMENT_FALLBACK, plural, todayStr, parseToc, withTimeout,
-  loadIssues: () => loadIssues({ fresh: true }), invalidateIssues, firestore, authLib, loadAnnouncement, resetAnnouncement, annVisible, annHref,
+  loadIssues: () => loadIssues({ fresh: true }), invalidateIssues, firestore, authLib,
+  loadAnnouncement: () => loadAnnouncement({ sdk: true }), resetAnnouncement, annVisible, annHref,
   toast, navigate, setColor, coverSrc, placeholder, driveId, fmtMonthRu: (d) => fmtMonth(d, 'ru'),
 };
 
@@ -852,12 +888,14 @@ async function render(opts = {}) {
   renderedPS = location.pathname + location.search;
   const r = parseRoute(location.pathname);
   const key = r.name === 'issue' ? 'issue:' + r.n : r.name;
-  toggleMenu(false);
+  // refresh: перерисовка после ответа базы. Адрес тот же: меню, шапку и открытую читалку не трогаем.
+  const refresh = !!opts.refresh;
+  if (!refresh) toggleMenu(false);
   if (current && current.key === key && current.lang === lang && r.name === 'issue') {
     if (r.read) openReader(r.n); else closeReaderDom();
     return;
   }
-  closeReaderDom(false);
+  if (!(refresh && r.read && readerN === r.n)) closeReaderDom(false);
   current = { key, lang, name: r.name };
   if (r.name === 'admin') {
     document.body.classList.remove('is-home');
@@ -878,7 +916,7 @@ async function render(opts = {}) {
     }
     return;
   }
-  ensurePublicChrome(r);
+  if (!refresh || app.dataset.kind !== 'public') ensurePublicChrome(r);
   if (mainEl().dataset.pre) { mainKey = mainEl().dataset.pre; delete mainEl().dataset.pre; }
   keepMain = mainKey === key;
   const view = VIEWS[r.name] || vNotFound;

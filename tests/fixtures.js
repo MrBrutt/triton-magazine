@@ -36,6 +36,8 @@ export const test = base.extend({
   firebaseLog: async ({}, use) => { await use([]); },
   page: async ({ page, firebase, firebaseLog }, use) => {
     await page.clock.setFixedTime(NOW);
+    // Для SDK-заглушки (редакция): те же данные, что отдаёт REST.
+    await page.addInitScript((fb) => { window.__fsIssues = fb.issues; window.__fsAnnouncement = fb.announcement || null; }, firebase);
     await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, async (route) => {
       const url = new URL(route.request().url());
       firebaseLog.push(`${route.request().method()} ${url.host}${url.pathname}`);

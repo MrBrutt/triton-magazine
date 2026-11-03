@@ -45,6 +45,7 @@ test.describe('форма входа', () => {
     expect(firebaseLog.filter((x) => x.includes('gstatic.com')).sort()).toEqual([
       'GET www.gstatic.com/firebasejs/10.8.0/firebase-app.js',
       'GET www.gstatic.com/firebasejs/10.8.0/firebase-auth.js',
+      'GET www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js',
     ]);
   });
 });

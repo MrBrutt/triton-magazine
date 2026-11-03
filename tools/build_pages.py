@@ -87,7 +87,7 @@ s_ = lambda v: v if isinstance(v, str) else ''
 
 
 def ym(d):
-    m = re.fullmatch(r'(\d{4})-(\d{2})', s_(d))
+    m = re.fullmatch(r'(\d{4})-(\d{2})', s_(d), re.A)
     return (int(m[1]), int(m[2])) if m and 1 <= int(m[2]) <= 12 else None
 
 
@@ -119,7 +119,7 @@ def parse_toc(s):
         line = line.strip()
         if not line:
             continue
-        m = re.fullmatch(r'(\d{1,3})[\s.:–—-]+(.+)', line)
+        m = re.fullmatch(r'(\d{1,3})[\s.:–—-]+(.+)', line, re.A)
         out.append({'page': m[1], 'title': m[2].strip()} if m else {'page': '', 'title': line})
     return out
 
@@ -175,7 +175,7 @@ def normalize(raw):
         d = DEFAULTS.get(str(x['n']), {})
         pick = lambda k: x[k] if isinstance(x.get(k), str) else (d.get(k) or '')
         x['titleView'] = clean_title(x.get('title'))
-        x['color'] = x.get('color') if x.get('color') in PALETTE else (d.get('color') or DEFAULT_COLOR)
+        x['color'] = x['color'] if isinstance(x.get('color'), str) and x['color'] in PALETTE else (d.get('color') or DEFAULT_COLOR)
         x['eff'] = {k: pick(k) for k in ('toc', 'quote', 'quoteBy')}
         x['eff']['coverAlt'] = d.get('coverAlt') or ''
         x['tocItems'] = parse_toc(x['eff']['toc'])
@@ -390,12 +390,9 @@ def version():
 
 
 def image_size(path):
-    try:
-        from PIL import Image
-        with Image.open(path) as im:
-            return im.size
-    except Exception:
-        return None
+    from PIL import Image
+    with Image.open(path) as im:
+        return im.size
 
 
 def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', noindex=False, admin=False,
@@ -436,6 +433,10 @@ def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', n
         meta.append(f'<meta name="twitter:card" content="{"summary_large_image" if image == "/og-image.png" else "summary"}">')
     if ld:
         meta.append(ld_json(ld))
+    if key == 'notfound':
+        # 404.html отдаётся и для читалки /issues/N/read/, и для номера, которого ещё нет в копии.
+        # Там «Страница не найдена» мелькнула бы до app.js, поэтому прячем её, пока app.js не нарисует своё.
+        meta.append("<script>if(/^\\/issues\\/\\d{1,4}(\\/read)?\\/?$/.test(location.pathname))document.documentElement.classList.add('pre-hide')</script>")
     head = '\n'.join(meta)
     if admin:
         body = '<div id="app"><noscript><div class="wrap" style="padding:32px 20px 48px"><h1>Вход для редакции</h1><p>Для входа нужен JavaScript.</p></div></noscript></div>'
@@ -480,11 +481,7 @@ def short(s, limit=200):
 def make_webp():
     """covers/N.jpg -> covers/N.webp (как есть) и covers/N-360.webp (360 px по ширине).
     Готовые файлы не пересобираются: другая версия Pillow дала бы другие байты."""
-    try:
-        from PIL import Image
-    except ImportError:
-        print('нет Pillow (pip install Pillow): WebP-обложки не созданы')
-        return
+    from PIL import Image
     for jpg in sorted((ROOT / 'covers').glob('*.jpg')):
         for out, width in ((jpg.with_suffix('.webp'), None), (jpg.with_name(jpg.stem + '-360.webp'), 360)):
             if out.exists():
@@ -551,6 +548,10 @@ def as_of_date(raw):
 
 
 def main():
+    try:
+        import PIL  # noqa: F401  размеры картинок для og:image и WebP-обложки
+    except ImportError:
+        raise SystemExit('Нужен Pillow: pip install Pillow. Без него страницы соберутся иначе, чем в CI.')
     raw = json.loads((ROOT / 'data' / 'issues.json').read_text(encoding='utf-8'))
     items = normalize(raw)
     if not items:

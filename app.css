@@ -25,6 +25,7 @@ h1,h2,h3,p,figure,blockquote,ul,ol,dl,dd,fieldset{margin:0}
 ul,ol{padding:0}
 img{max-width:100%}
 picture{display:contents}
+.pre-hide main[data-pre]{visibility:hidden}
 a{color:var(--ink)}
 a:hover{color:var(--violet)}
 button{font:inherit;color:inherit}
