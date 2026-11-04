@@ -39,6 +39,11 @@ export const newIssue = (extra = {}) => ({ id: 'test-new-issue', title: 'Нов�
 /* Часы тестов: страницы собраны на дату последней загрузки номера, app.js считает годы от «сегодня». */
 export const NOW = new Date('2026-11-03T12:00:00+03:00');
 
+/* Статьи: список из data/articles.json (его собирает build_pages.py) и тексты из data/articles/N/slug.txt. */
+export const ARTICLES = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/articles.json'), 'utf8'));
+export const ARTICLE_URLS = Object.entries(ARTICLES).flatMap(([n, list]) => list.map((a) => `/issues/${n}/${a.slug}/`));
+export const articleText = (n, slug) => fs.readFileSync(path.join(ROOT, `data/articles/${n}/${slug}.txt`), 'utf8');
+
 const toValue = (v) => {
   if (v === null || v === undefined) return { nullValue: null };
   if (typeof v === 'boolean') return { booleanValue: v };

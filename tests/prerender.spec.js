@@ -1,8 +1,8 @@
 // Готовая вёрстка из build_pages.py должна совпадать с тем, что рисует app.js,
 // а app.js не должен её трогать: тогда при загрузке ничего не прыгает.
-import { test, expect, settled, ISSUES, LATEST, NEW_N, newIssue } from './fixtures.js';
+import { test, expect, settled, ISSUES, LATEST, NEW_N, newIssue, ARTICLE_URLS } from './fixtures.js';
 
-const PAGES = ['/', '/issues/', '/about/', '/does-not-exist/', ...ISSUES.map((_, i) => `/issues/${i + 1}/`)];
+const PAGES = ['/', '/issues/', '/about/', '/does-not-exist/', ...ISSUES.map((_, i) => `/issues/${i + 1}/`), ...ARTICLE_URLS];
 const PARTS = ['#hdr', '#menu', '#main', '#ftr'];
 // build_pages.py считает год в подвале и «N лет» от последней загрузки номера: те же часы и для app.js.
 const AS_OF = new Date(ISSUES.map((x) => x.uploadedAt || '').sort().at(-1) || '2026-11-03T12:00:00Z');
