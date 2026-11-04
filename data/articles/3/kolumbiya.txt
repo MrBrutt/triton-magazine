@@ -53,4 +53,28 @@ page: 49
 
 {en} As for class projects, there are 2 main types. First is PBL (project-based learning), such projects are aimed to put the knowledge we get in school into a real life situation. For example last semester we were studying living things and their classification in biology. So, we were supposed to make a portfolio with the photos of all living things around campus (birds, insects, plants, etc.) in order to learn how to apply that knowledge in our daily lives. The other time we were told to create a submarine that would hold a tourist to go 6.000 feet beneath the ocean. It seemed impossible, we had to research a lot, but that way we learnt about the Archimides principle, volume, mass, density and many more.
 
-{en} The other one is CBL (challenge-based learning), such projects require people to be
+{en} The other one is CBL (challenge-based learning), such projects require people to be brought to school, usually professionals who tell about the importance of certain school knowledge in daily life. For example last time it was a mathematician telling us how to implement the knowledge of polygons and angles.
+
+{en} BUT that’s only so in Marymount school, which is infamous for such a way of developing ideas. I was studying in another school (also in Barranquilla), and we did have something similar, but here it still hits differently.
+
+Если говорят о классных проектах, то выделяют два типа» или «Существует два типа классных проектов». Первый – это PBL (project-based learning – обучение, основанное на проекте), такие проекты имеют целью научить учеников приме-нять школьные знания в реальной жизни. <...> Другой тип – это CBL (challenge-based learning – обучение, основанное на вызове), для их осу-ществления в школу необходимо приглашать людей, обычно профессионалов, которые рассказывают о важности некоторых школьных знаний в повседневности)
+
+* Несколько песен в традиционном стиле, под которые часто исполняются вышеупомянутые танцы:
+
+{en} 1. Frutos del carnaval
+
+{en} 2. Prende la vela
+
+{en} 3. Catalina (Mr. Black)
+
+{en} 4. Propuesta Indecente
+
+5. La Bachata (Manuel Turizo) ** Краткое описание вышеперечисленных блюд:
+
+1. Ахиако (ajiaco) – национальный колумбийский картофельный суп с добавлением курицы, кукурузы и разнообразных трав, в том числе гуаско, за счет которой суп приобретает характерный вкус.
+
+2. Санкочо (sancocho) – овощное рагу/ густой суп с курицей, зелеными бананами и большим количеством приправ.
+
+3. Бандеха пайса (Bandeja Paisa) – большая тарелка с яичницей, наполненная разными видами мяса, колбасок, шкурок, а также фасолью, рисом, кукурузными лепешками и жареными плантанами (крупные овощные бананы).
+
+4. Эмпанада (Empanada) - лепешки из кукурузной муки с начинкой, обжаренные во фритюре.
