@@ -25,13 +25,15 @@ CI падает, если повторный запуск `build_pages.py` чт�
 - Яндекс.Метрику (счётчик 114053772) не трогать без просьбы: тесты не дают ей грузиться на `/admin/`,
   считать фоновые перерисовки и отправлять строку поиска.
 - Не править руками собранные файлы: `index.html`, `issues/**/index.html`, `about/index.html`, `admin/index.html`,
-  `404.html`, `sitemap.xml`, `robots.txt`, `rss.xml`, `covers/*.webp`.
+  `404.html`, `sitemap.xml`, `robots.txt`, `rss.xml`, `covers/*.webp`, `data/articles.json`.
+- Тексты статей (`data/articles/N/slug.txt`) дословные, как в PDF номера: не переписывать и не исправлять. Без имён авторов,
+  иллюстраторов и фотографов в подписях и метаданных, без телефонов, адресов, email и личных аккаунтов. PDF в репозиторий не класть.
 - Не пушить в `main` и не деплоить: всё через PR.
 
 ## Устройство, которое легко сломать
 
-- **Шаблоны страниц живут в двух местах.** `app.js` (`vHome`, `vIssues`, `vIssue`, `vAbout`, `vNotFound`, `card`, `cover`,
-  `tocSec`, `headerHtml`, `menuHtml`, `footerHtml`) и `tools/build_pages.py` (`v_home`, `v_issues`, … для русской версии).
+- **Шаблоны страниц живут в двух местах.** `app.js` (`vHome`, `vIssues`, `vIssue`, `vArticle`, `vAbout`, `vNotFound`, `card`, `cover`,
+  `tocSec`, `blockHtml`, `headerHtml`, `menuHtml`, `footerHtml`) и `tools/build_pages.py` (`v_home`, `v_issues`, `v_article`, `block_html`, … для русской версии).
   Разметка должна совпадать до символа после разбора HTML, иначе страница мигает при загрузке.
   `tests/prerender.spec.js` сравнивает их на всех страницах и проверяет, что `app.js` не меняет DOM.
 - **Константы `PALETTE`, `DEFAULT_COLOR`, `LOCAL_COVERS`, `DEFAULTS`, `TEAM`, `COVER_SIZES` в `app.js` записаны строгим JSON**
@@ -44,6 +46,10 @@ CI падает, если повторный запуск `build_pages.py` чт�
   документа не давало 404 в консоли.
   Редакция ходит в базу только через SDK с правами вошедшего: `api.loadIssues()` = `loadIssues({ fresh: true })` (`fetchLiveSdk`),
   `api.loadAnnouncement()` = `loadAnnouncement({ sdk: true })`. `issuesGen` не даёт опоздавшему ответу перетереть свежий.
+- **Статьи** `/issues/N/slug/`: `app.js` берёт список из `/data/articles.json` (`loadArticles`) и текст из
+  `/data/articles/N/slug.txt` (`loadArticleText`, `articleBlocks`); разбор текста одинаковый в `app.js` и `build_pages.py`.
+  Страница номера ждёт список статей, чтобы ссылки в содержании совпали с готовой вёрсткой. Ссылка — только при точном
+  совпадении пункта содержания с полем `toc` статьи. Ключ готовой страницы — `article:N:slug`.
 - `404.html` отдаётся и для `/issues/N/read/`, и для номеров не из копии: инлайн-скрипт в `<head>` прячет его `<main>`
   (класс `pre-hide`) на таких адресах, пока `app.js` не нарисует своё.
 - **Детерминированная сборка.** Год в подвале и «N лет» на странице «О журнале» `build_pages.py` берёт из даты последней
@@ -54,8 +60,8 @@ CI падает, если повторный запуск `build_pages.py` чт�
   страница ошибки не считается. Плашка о cookies получает `inert` вместе с `#app`, пока открыта читалка. Плашка о cookies — `cookieBar()`, вне `#app`.
 - Тексты, которые есть в готовой вёрстке (например, награда на «О журнале»), правятся в двух местах: `I.ru` в `app.js`
   и константы в `build_pages.py` (`AWARD`, `JOIN_TEXT`, …).
-- Тесты не хардкодят «последний номер» и число номеров: берите `LATEST`, `N`, `LIST`, `YEARS`, `issuesRu`, `newIssue` из
-  `tests/fixtures.js`. Конкретный номер (например, №10 с его текстами) проверять можно. Обложки из Диска в тестах — картинка
+- Тесты не хардкодят «последний номер» и число номеров: берите `LATEST`, `N`, `LIST`, `YEARS`, `issuesRu`, `newIssue`,
+  `ARTICLES`, `ARTICLE_URLS` из `tests/fixtures.js`. Конкретный номер (например, №10 с его текстами) проверять можно. Обложки из Диска в тестах — картинка
   `DRIVE_THUMB`: если её оборвать, `app.js` подставит заглушку и вёрстка разойдётся с готовым HTML.
 - `update-issues.yml` раз в 50 дней тишины пушит в `main` пустой коммит, чтобы GitHub не выключил расписание.
 - Обработчики событий страницы, которые вешаются на элементы, переживающие перерисовку, должны получать `{ signal: viewSignal() }`.

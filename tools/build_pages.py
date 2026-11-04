@@ -4,7 +4,8 @@
 Сайт работает как одно приложение (app.js), но у каждой важной страницы есть свой файл
 с готовой вёрсткой, заголовком, описанием и разметкой schema.org:
   /index.html, /issues/index.html, /issues/N/index.html, /about/index.html,
-  /admin/index.html, /404.html (для всех остальных адресов),
+  /issues/N/slug/index.html (статьи из data/articles/N/slug.txt),
+  /admin/index.html, /404.html (для всех остальных адресов), data/articles.json (список статей для app.js),
   sitemap.xml, robots.txt, rss.xml и обложки covers/N.webp, covers/N-360.webp.
 
 Вёрстка здесь повторяет шаблоны app.js для русской версии сайта. app.js рисует страницу
@@ -214,11 +215,13 @@ def card(x, latest=False, eager=False):
     return f'<li><a class="card" href="{issue_path(x["n"])}">{cover(x, "", "", eager)}<span class="t">{e(x["titleView"])}</span><span class="m">{e(meta)}</span></a></li>'
 
 
-def toc_sec(x, hint):
+def toc_sec(x, hint, links=None):
     if not x['tocItems']:
         return ''
     pg = lambda it: '<span class="sr">стр. </span>' + e(it['page']) if it['page'] else ''
-    items = ''.join(f'<li><span class="pg">{pg(it)}</span><span class="tt">{e(it["title"])}</span></li>' for it in x['tocItems'])
+    links = links or {}
+    tt = lambda it: f'<a href="{e(links[it["title"]])}">{e(it["title"])}</a>' if it['title'] in links else e(it['title'])
+    items = ''.join(f'<li><span class="pg">{pg(it)}</span><span class="tt">{tt(it)}</span></li>' for it in x['tocItems'])
     hint_html = '<p>Номера страниц как в журнале.</p>' if hint else ''
     return f'<section class="sec" aria-labelledby="toc-h"><div class="wrap split"><div class="split-h"><h2 class="h2" id="toc-h">В номере</h2>{hint_html}</div><ol class="toc" role="list">{items}</ol></div></section>'
 
@@ -228,7 +231,7 @@ def join_box():
 
 
 def header_html(name):
-    sec = 'page' if name == 'issues' else 'true' if name == 'issue' else ''
+    sec = 'page' if name == 'issues' else 'true' if name in ('issue', 'article') else ''
     join = '#join' if name == 'home' else '/about/#join'
     cur = lambda v: f' aria-current="{v}"' if v else ''
     return f'''<div class="wrap">
@@ -292,7 +295,7 @@ def v_issues(items):
 <div class="state" id="nores" hidden><h2>Ничего не нашлось</h2><p>Попробуйте другое слово или покажите все годы.</p><button type="button" class="btn btn-o" id="reset">Сбросить поиск</button></div></div></section></div>''')
 
 
-def v_issue(items, i):
+def v_issue(items, i, arts=()):
     x = items[i]
     n = x['n']
     pdf = pdf_of(x)
@@ -317,7 +320,90 @@ def v_issue(items, i):
     pn = lambda y, label: (f'<a class="pn-a" href="{issue_path(y["n"])}">{cover(y, "cv-s", "")}<span><small>{label}</small><b>№{y["n"]} {e("«" + y["titleView"] + "»")}</b></span></a>' if y else '')
     nav = (f'<nav class="pn" aria-label="Другие номера"><div class="wrap"><div class="pn-l">{pn(prev, "Предыдущий номер")}{pn(nxt, "Следующий номер")}</div>'
            '<a class="btn btn-o" href="/issues/">Все выпуски</a></div></nav>')
-    return hero + toc_sec(x, True) + quote + nav
+    return hero + toc_sec(x, True, toc_links(x['n'], arts)) + quote + nav
+
+
+# ---------------- статьи ----------------
+ARTICLES = ROOT / 'data' / 'articles'
+SLUG = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
+article_path = lambda n, slug: f'/issues/{n}/{slug}/'
+
+
+def article_blocks(body):
+    """Абзацы статьи: пустая строка между абзацами, «## » — подзаголовок, перенос строки внутри абзаца — <br>."""
+    return [b.strip() for b in re.split(r'\n{2,}', body.replace('\r', '')) if b.strip()]
+
+
+def read_article(path):
+    text = path.read_text(encoding='utf-8').replace('\r', '')
+    head, _, body = text.partition('\n\n')
+    meta = dict(line.split(': ', 1) for line in head.split('\n') if ': ' in line)
+    if not SLUG.fullmatch(path.stem) or path.stem == 'read':
+        raise SystemExit(f'{path}: имя файла — латинский slug (a-z, 0-9, дефис), не «read»')
+    if not meta.get('title', '').strip():
+        raise SystemExit(f'{path}: нет строки «title: …» в начале файла')
+    blocks = article_blocks(body)
+    if not blocks:
+        raise SystemExit(f'{path}: пустой текст')
+    page_no = meta.get('page', '').strip()
+    return {'slug': path.stem, 'title': meta['title'].strip(), 'page': page_no, 'toc': meta.get('toc', '').strip(), 'blocks': blocks}
+
+
+def load_articles():
+    """data/articles/N/*.txt -> {N: [статьи по порядку страниц]}."""
+    out = {}
+    for d in sorted(ARTICLES.glob('*/'), key=lambda d: d.name):
+        if not re.fullmatch(r'\d{1,4}', d.name):
+            continue
+        arts = [read_article(f) for f in sorted(d.glob('*.txt'))]
+        arts.sort(key=lambda a: (int(a['page']) if a['page'].isdigit() else 10 ** 6, a['slug']))
+        if arts:
+            out[int(d.name)] = arts
+    return out
+
+
+def toc_links(n, arts):
+    """Пункт содержания ведёт на статью, только если его текст точно совпадает с полем toc статьи."""
+    return {a['toc']: article_path(n, a['slug']) for a in arts if a['toc']}
+
+
+def first_para(blocks):
+    p = next((b for b in blocks if not b.startswith('## ')), blocks[0])
+    return re.sub(r'^(## )?(\{en\} )?', '', p).replace('\n', ' ')
+
+
+def block_html(b):
+    """«## » — подзаголовок, «{en} » в начале — абзац на английском (lang="en"), перенос строки — <br>."""
+    tag = 'h2' if b.startswith('## ') else 'p'
+    s = b[3:] if tag == 'h2' else b
+    lang = ''
+    if s.startswith('{en} '):
+        lang, s = ' lang="en"', s[5:]
+    lines = s.split('\n')
+    cls = ' class="v"' if tag == 'p' and len(lines) > 1 else ''
+    return f'<{tag}{cls}{lang}>' + '<br>'.join(e(x) for x in lines) + f'</{tag}>'
+
+
+def v_article(x, arts, j):
+    a = arts[j]
+    n = x['n']
+    meta = f'Выпуск №{n} · {month(x.get("date"))}' + (f' · стр. {a["page"]}' if a['page'] else '')
+    hero = (f'<section class="ahd"><div class="wrap"><nav class="crumbs" aria-label="Вы здесь"><a href="/issues/">Выпуски</a>'
+            f'<span class="sep" aria-hidden="true">/</span><a href="{issue_path(n)}">№{n}</a></nav>'
+            f'<p class="meta">{e(meta)}</p><h1 tabindex="-1" lang="ru">{e(a["title"])}</h1></div></section>')
+    body = '<div class="wrap"><div class="prose" lang="ru">' + ''.join(block_html(b) for b in a['blocks']) + '</div></div>'
+    pdf = pdf_of(x)
+    acts = f'<a class="btn" href="{issue_path(n)}">{e(f"Весь выпуск №{n}")}</a>'
+    if pdf:
+        acts += f'<a class="btn btn-o" href="{read_path(n)}">Читать номер в PDF</a>{ext(pdf, "PDF на Google Диске", "btn-t")}'
+    end = (f'<section class="art-end"><div class="wrap"><p class="meta">{e(f"Статья из выпуска №{n} «{x["titleView"]}».")}</p>'
+           f'<div class="acts">{acts}</div></div></section>')
+    prev = arts[j - 1] if j > 0 else None
+    nxt = arts[j + 1] if j + 1 < len(arts) else None
+    pn = lambda y, label: (f'<a class="pn-a" href="{article_path(n, y["slug"])}"><span><small>{label}</small><b lang="ru">{e(y["title"])}</b></span></a>' if y else '')
+    nav = (f'<nav class="pn pn-art" aria-label="Другие статьи номера"><div class="wrap"><div class="pn-l">{pn(prev, "Предыдущая статья")}{pn(nxt, "Следующая статья")}</div></div></nav>'
+           if prev or nxt else '')
+    return hero + body + end + nav
 
 
 def v_about(items, years_since):
@@ -389,6 +475,9 @@ def version():
     h = hashlib.sha1()
     for name in ('app.js', 'admin.js', 'app.css', 'data/issues.json'):
         h.update((ROOT / name).read_bytes())
+    # Тексты статей: app.js берёт их с той же версией в адресе, правка текста обновит кэш браузеров.
+    for f in sorted(ARTICLES.glob('*/*.txt')):
+        h.update(f.relative_to(ROOT).as_posix().encode() + b'\0' + f.read_bytes())
     return h.hexdigest()[:10]
 
 
@@ -399,7 +488,7 @@ def image_size(path):
 
 
 def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', noindex=False, admin=False,
-         main='', key='', ld=None, home=False, year=None, name=''):
+         main='', key='', ld=None, home=False, year=None, name='', og_type='website'):
     url = SITE + path
     size = (1200, 630) if image == '/og-image.png' else image_size(ROOT / image.lstrip('/'))
     meta = [
@@ -424,7 +513,7 @@ def page(*, path, title, desc, color, v, og_title=None, image='/og-image.png', n
     ]
     if not noindex:
         meta += [
-            '<meta property="og:type" content="website">',
+            f'<meta property="og:type" content="{og_type}">',
             '<meta property="og:site_name" content="Тритон">',
             '<meta property="og:locale" content="ru_RU">',
             f'<meta property="og:url" content="{e(url)}">',
@@ -473,8 +562,8 @@ def write(rel, data):
         p.write_text(data, encoding='utf-8')
 
 
-def short(s, limit=200):
-    p = (typo(s).split('\n') or [''])[0].strip()
+def short(s, limit=200, raw=False):
+    p = ((s if raw else typo(s)).split('\n') or [''])[0].strip()
     if len(p) <= limit:
         return p
     cut = p[:limit]
@@ -561,6 +650,7 @@ def main():
     if not items:
         raise SystemExit('в data/issues.json нет выпусков')
     make_webp()
+    articles = load_articles()
     as_of = as_of_date(raw)
     year = as_of.year
     years_since = max(1, year - 2021 - (1 if as_of.month < 10 else 0))
@@ -602,11 +692,50 @@ def main():
         desc = short(x['desc']) or f'Выпуск №{n} журнала «Тритон», {month(x.get("date"))}.'
         pages[f'issues/{n}/index.html'] = page(
             path=issue_path(n), title=f'№{n}. {title} — Тритон', og_title=f'«Тритон» №{n}. {title}', desc=desc,
-            color=x['color'], image=cover_file, main=v_issue(items, i), key=f'issue:{n}', name='issue',
+            color=x['color'], image=cover_file, main=v_issue(items, i, articles.get(n, [])), key=f'issue:{n}', name='issue',
             ld=[publication_issue(x), {'@type': 'Periodical', '@id': PERIODICAL_ID, 'name': 'Тритон', 'url': SITE + '/'},
                 breadcrumbs(('Тритон', '/'), ('Все выпуски', '/issues/'), (f'№{n}. {title}', issue_path(n)))], **common)
+        arts = articles.get(n, [])
+        for j, a in enumerate(arts):
+            path = article_path(n, a['slug'])
+            desc = short(first_para(a['blocks']), raw=True)
+            article_ld = {
+                '@type': 'Article', '@id': SITE + path + '#article', 'headline': a['title'], 'name': a['title'], 'url': SITE + path,
+                'mainEntityOfPage': SITE + path, 'inLanguage': 'ru', 'description': desc,
+                'isPartOf': {'@id': SITE + issue_path(n) + '#issue'},
+                # Подписей авторов на сайте нет: автор — сам журнал.
+                'author': {'@type': 'Organization', '@id': SITE + '/#magazine', 'name': 'Тритон', 'url': SITE + '/'},
+                'publisher': {'@type': 'EducationalOrganization', 'name': PUBLISHER},
+            }
+            if ym(x.get('date')):
+                article_ld['datePublished'] = x['date']
+            if a['page'].isdigit():
+                article_ld['pageStart'] = a['page']
+            if cover_file != '/og-image.png':
+                article_ld['image'] = SITE + cover_file
+            pages[f'issues/{n}/{a["slug"]}/index.html'] = page(
+                path=path, title=f'{a["title"]} — Тритон №{n}', og_title=a['title'], desc=desc, og_type='article',
+                color=x['color'], main=v_article(x, arts, j), key=f'article:{n}:{a["slug"]}', name='article',
+                ld=[article_ld, publication_issue(x, full=False),
+                    breadcrumbs(('Тритон', '/'), ('Все выпуски', '/issues/'), (f'№{n}. {title}', issue_path(n)), (a['title'], path))], **common)
+    missing = sorted(set(articles) - {x['n'] for x in items})
+    for n in missing:
+        print(f'внимание: статьи data/articles/{n}/ есть, а номера {n} в data/issues.json нет; их страницы не пересобраны')
     for rel, text in pages.items():
         write(rel, text)
+    # Список статей для app.js: адреса, заголовки и пункты содержания. Тексты он берёт из data/articles/N/slug.txt.
+    manifest = {str(n): [{'slug': a['slug'], 'title': a['title'], 'page': a['page'], 'toc': a['toc']} for a in arts]
+                for n, arts in sorted(articles.items())}
+    write('data/articles.json', json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
+    # Статью убрали из data/articles: её страница тоже уходит. Статьи номера, которого нет в данных, не трогаем.
+    for old in sorted((ROOT / 'issues').glob('*/*/index.html')):
+        rel = old.relative_to(ROOT).as_posix()
+        m = re.fullmatch(r'issues/(\d+)/([^/]+)/index\.html', rel)
+        if m and rel not in pages and int(m[1]) not in missing:
+            old.unlink()
+            if not any(old.parent.iterdir()):
+                old.parent.rmdir()
+            print('удалена', rel)
     # Номер убрали из данных: его старая страница не должна остаться на сайте.
     for old in sorted((ROOT / 'issues').glob('*/index.html')):
         rel = old.relative_to(ROOT).as_posix()
@@ -615,7 +744,9 @@ def main():
             if not any(old.parent.iterdir()):
                 old.parent.rmdir()
             print('удалена', rel)
-    urls = ['/', '/issues/', '/about/'] + [issue_path(x['n']) for x in items]
+    urls = ['/', '/issues/', '/about/']
+    for x in items:
+        urls += [issue_path(x['n'])] + [article_path(x['n'], a['slug']) for a in articles.get(x['n'], [])]
     write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
           + ''.join(f'  <url><loc>{SITE}{u}</loc></url>\n' for u in urls) + '</urlset>\n')
     write('robots.txt', f'User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n')

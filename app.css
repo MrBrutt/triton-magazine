@@ -184,6 +184,24 @@ h1:focus{outline:none}
 .pn-a small{display:block;font-size:15px;color:var(--ink2)}
 .pn-a b{display:block;margin-top:2px;font-weight:600;font-size:19px;line-height:1.3}
 .pn .btn{min-height:52px;padding:0 24px}
+.toc .tt a{text-decoration-thickness:1px;text-underline-offset:4px}
+.toc .tt a:hover{text-decoration-thickness:2px}
+
+/* ---------- статья ---------- */
+.ahd{background:var(--c);padding:20px 0 56px}
+.ahd .meta{margin-top:36px}
+.ahd h1{margin-top:12px;max-width:24ch;font:800 46px/1.12 var(--head);letter-spacing:-.01em;overflow-wrap:break-word;hyphens:auto}
+.prose{max-width:40rem;padding:56px 0 72px;font-size:19px;line-height:1.7;overflow-wrap:break-word;hyphens:auto;text-wrap:pretty}
+.prose p+p,.prose h2+p{margin-top:1em}
+.prose h2{margin-top:2em;font:800 24px/1.3 var(--head);hyphens:manual}
+.prose h2:first-child{margin-top:0}
+.prose p+h2,.prose .v+h2{margin-top:2em}
+.prose .v{margin-top:1.4em;margin-bottom:1.4em;padding-left:1.2em;border-left:4px solid var(--c);hyphens:manual}
+.prose .v:first-child{margin-top:0}
+.art-end{background:var(--mist);padding:48px 0 56px}
+.art-end .acts{margin-top:20px;gap:12px 16px}
+.pn-art .pn-l{width:100%;justify-content:space-between}
+.pn-art .pn-a b{max-width:30ch}
 
 /* ---------- о журнале ---------- */
 .ahero{background:var(--c);padding:24px 0 72px}
@@ -432,6 +450,12 @@ select.fld{-webkit-appearance:none;appearance:none;padding-right:40px;background
   .quote blockquote{font-size:22px}
   .quote figcaption{font-size:15px}
   .pn{padding:40px 0 56px}
+  .ahd{padding:12px 0 40px}
+  .ahd .meta{margin-top:24px;font-size:16px}
+  .ahd h1{font-size:30px;line-height:1.15}
+  .prose{padding:36px 0 48px;font-size:18px;line-height:1.65}
+  .prose h2{font-size:21px}
+  .art-end{padding:36px 0 44px}
   .pn .btn{width:100%}
 
   .ahero{padding:12px 0 48px}

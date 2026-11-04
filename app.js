@@ -168,6 +168,9 @@ const I = {
     cookieText: 'Мы используем cookies и Яндекс.Метрику, чтобы считать посещения сайта.', cookieOk: 'Понятно', cookieLabel: 'Уведомление о cookies',
     tHome: 'Тритон — журнал студентов Международной гимназии Сколково', tIssues: 'Все выпуски — Тритон',
     tIssue: (n, s) => `№${n}. ${s} — Тритон`, tAbout: 'О журнале — Тритон', tNotFound: 'Страница не найдена — Тритон',
+    tArticle: (n, s) => `${s} — Тритон №${n}`,
+    wholeIssue: (n) => `Весь выпуск №${n}`, readPdf: 'Читать номер в PDF', fromIssue: (n, s) => `Статья из выпуска №${n} «${s}».`,
+    prevArt: 'Предыдущая статья', nextArt: 'Следующая статья', otherArts: 'Другие статьи номера', loadingArt: 'Загружаем статью…',
     months: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
     q: (s) => `«${s}»`,
   },
@@ -213,6 +216,9 @@ const I = {
     cookieText: 'We use cookies and Yandex Metrica to count visits to the site.', cookieOk: 'Got it', cookieLabel: 'Cookie notice',
     tHome: 'Triton, the student magazine of the International Gymnasium Skolkovo', tIssues: 'All issues — Triton',
     tIssue: (n, s) => `No. ${n}. ${s} — Triton`, tAbout: 'About — Triton', tNotFound: 'Page not found — Triton',
+    tArticle: (n, s) => `${s} — Triton No. ${n}`,
+    wholeIssue: (n) => `The whole issue ${n}`, readPdf: 'Read the issue PDF', fromIssue: (n, s) => `An article from issue ${n}, “${s}”.`,
+    prevArt: 'Previous article', nextArt: 'Next article', otherArts: 'More from this issue', loadingArt: 'Loading the article…',
     months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     q: (s) => `“${s}”`,
   },
@@ -443,6 +449,43 @@ async function refreshLive(shown) {
 }
 function invalidateIssues() { issuesP = null; issuesFresh = false; issuesGen++; }
 
+/* Статьи: список (data/articles.json, его собирает build_pages.py) и тексты data/articles/N/slug.txt.
+   В базе статей нет, поэтому фоновое обновление из базы их не меняет. Нет списка — страницы номеров без ссылок на статьи. */
+let articlesP = null;
+const textP = new Map();
+function loadArticles() {
+  if (!articlesP) {
+    articlesP = fetch('/data/articles.json' + (V ? '?v=' + V : ''))
+      .then((r) => { if (!r.ok) throw new Error(`articles.json: HTTP ${r.status}`); return r.json(); })
+      .catch((e) => { console.warn('[Тритон] нет списка статей', e); articlesP = null; return {}; });
+  }
+  return articlesP;
+}
+const articlesOf = (all, n) => (Array.isArray(all?.[n]) ? all[n] : []);
+function loadArticleText(n, slug) {
+  const key = n + '/' + slug;
+  if (!textP.has(key)) {
+    textP.set(key, fetch(`/data/articles/${n}/${slug}.txt` + (V ? '?v=' + V : ''))
+      .then((r) => { if (!r.ok) throw new Error(`статья ${key}: HTTP ${r.status}`); return r.text(); })
+      .catch((e) => { textP.delete(key); throw e; }));
+  }
+  return textP.get(key);
+}
+/* Абзацы статьи: шапка (title:, page:, toc:) до первой пустой строки, дальше абзацы через пустую строку.
+   «## » — подзаголовок, «{en} » в начале — абзац на английском, перенос строки внутри абзаца — <br>. Так же разбирает build_pages.py. */
+function articleBlocks(text) {
+  const t = text.replace(/\r/g, '');
+  const i = t.indexOf('\n\n');
+  return (i < 0 ? '' : t.slice(i + 2)).split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+}
+function blockHtml(b) {
+  const tag = b.startsWith('## ') ? 'h2' : 'p';
+  let s = tag === 'h2' ? b.slice(3) : b, lang = '';
+  if (s.startsWith('{en} ')) { lang = ' lang="en"'; s = s.slice(5); }
+  const lines = s.split('\n');
+  return `<${tag}${tag === 'p' && lines.length > 1 ? ' class="v"' : ''}${lang}>${lines.map(esc).join('<br>')}</${tag}>`;
+}
+
 let annP = null;
 /* sdk: true — для редакции: читаем с правами вошедшего редактора и всегда заново. */
 function loadAnnouncement({ sdk = false } = {}) {
@@ -491,6 +534,7 @@ const D = (x) => (lang === 'en' && x.eff.desc_en ? x.eff.desc_en : str(x.desc));
 const altOf = (x) => (lang === 'en' ? x.eff.coverAlt_en : x.eff.coverAlt) || t('coverAlt', x.n);
 const issuePath = (n) => `/issues/${n}/`;
 const readPath = (n) => `/issues/${n}/read/`;
+const articlePath = (n, slug) => `/issues/${n}/${slug}/`;
 
 function setColor(c) {
   document.documentElement.style.setProperty('--c', c);
@@ -539,9 +583,11 @@ function card(x, isLatest = false, eager = false) {
   return `<li><a class="card" href="${issuePath(x.n)}">${cover(x, '', '', eager)}<span class="t">${esc(T(x))}</span><span class="m">${esc(meta)}</span></a></li>`;
 }
 
-function tocSec(x, withHint) {
+/* links: пункт содержания -> адрес статьи (только точное совпадение текста с полем toc статьи). */
+function tocSec(x, withHint, links = {}) {
   if (!x.tocItems.length) return '';
-  const items = x.tocItems.map((it) => `<li><span class="pg">${it.page ? `<span class="sr">${esc(t('page'))} </span>${esc(it.page)}` : ''}</span><span class="tt">${esc(it.title)}</span></li>`).join('');
+  const tt = (it) => (Object.hasOwn(links, it.title) ? `<a href="${esc(links[it.title])}">${esc(it.title)}</a>` : esc(it.title));
+  const items = x.tocItems.map((it) => `<li><span class="pg">${it.page ? `<span class="sr">${esc(t('page'))} </span>${esc(it.page)}` : ''}</span><span class="tt">${tt(it)}</span></li>`).join('');
   return `<section class="sec" aria-labelledby="toc-h"><div class="wrap split"><div class="split-h"><h2 class="h2" id="toc-h">${esc(t('inside'))}</h2>${withHint ? `<p>${esc(t('insideHint'))}</p>` : ''}</div><ol class="toc" role="list">${items}</ol></div></section>`;
 }
 
@@ -550,7 +596,7 @@ function joinBox() {
 }
 
 function headerHtml(r) {
-  const sec = r.name === 'issues' ? 'page' : r.name === 'issue' ? 'true' : '';
+  const sec = r.name === 'issues' ? 'page' : r.name === 'issue' || r.name === 'article' ? 'true' : '';
   const joinHref = r.name === 'home' ? '#join' : '/about/#join';
   const cur = (v) => (v ? ` aria-current="${v}"` : '');
   return `<div class="wrap">
@@ -697,7 +743,7 @@ function matches(x, tokens, year) {
 
 async function vIssue(r, stale) {
   skeleton(`<section class="ihero" aria-busy="true"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">${esc(t('noN', r.n))}</span></nav><div class="ihero-g"><div class="ihero-cv"><div class="cv cv-xl sk"></div></div><div class="ihero-t"><p class="meta">${esc(t('issueN', r.n))}</p><p class="sr">${esc(t('loading'))}</p></div></div></div></section>`);
-  const { list } = await findIssue(r.n);
+  const [{ list }, all] = await Promise.all([findIssue(r.n), loadArticles()]);
   if (stale()) return null;
   const i = list.findIndex((x) => x.n === r.n);
   if (i < 0) {
@@ -727,8 +773,39 @@ async function vIssue(r, stale) {
   const prev = list[i + 1], next = list[i - 1];
   const pn = (y, label) => (y ? `<a class="pn-a" href="${issuePath(y.n)}">${cover(y, 'cv-s', '')}<span><small>${esc(label)}</small><b>${esc(t('noN', y.n))} ${esc(t('q', T(y)))}</b></span></a>` : '');
   const nav = `<nav class="pn" aria-label="${esc(t('others'))}"><div class="wrap"><div class="pn-l">${pn(prev, t('prev'))}${pn(next, t('next'))}</div><a class="btn btn-o" href="/issues/">${esc(t('allIssues'))}</a></div></nav>`;
-  setHtml(mainEl(), hero + tocSec(x, true) + quote + nav);
+  const links = Object.fromEntries(articlesOf(all, x.n).filter((a) => a.toc).map((a) => [a.toc, articlePath(x.n, a.slug)]));
+  setHtml(mainEl(), hero + tocSec(x, true, links) + quote + nav);
   return t('tIssue', x.n, T(x));
+}
+
+/* Статья: текст всегда на русском (lang="ru"), подписи интерфейса — на языке сайта. */
+async function vArticle(r, stale) {
+  skeleton(`<section class="ahd" aria-busy="true"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><a href="${issuePath(r.n)}">${esc(t('noN', r.n))}</a></nav><p class="meta">${esc(t('issueN', r.n))}</p><p class="sr">${esc(t('loadingArt'))}</p></div></section>`);
+  const [{ list }, all] = await Promise.all([findIssue(r.n), loadArticles()]);
+  if (stale()) return null;
+  const x = list.find((y) => y.n === r.n);
+  const arts = articlesOf(all, r.n);
+  const j = arts.findIndex((a) => a.slug === r.slug);
+  if (!x || j < 0) {
+    setColor(list[0]?.color || DEFAULT_COLOR);
+    setHtml(mainEl(), notFoundHtml(t('nfH'), t('nfP')));
+    return t('tNotFound');
+  }
+  const text = await loadArticleText(r.n, r.slug);
+  if (stale()) return null;
+  setColor(x.color);
+  const a = arts[j];
+  const meta = t('issueMeta', x.n, fmtMonth(x.date)) + (a.page ? ` · ${t('page')} ${a.page}` : '');
+  const hero = `<section class="ahd"><div class="wrap"><nav class="crumbs" aria-label="${esc(t('crumbs'))}"><a href="/issues/">${esc(t('navIssues'))}</a><span class="sep" aria-hidden="true">/</span><a href="${issuePath(x.n)}">${esc(t('noN', x.n))}</a></nav><p class="meta">${esc(meta)}</p><h1 tabindex="-1" lang="ru">${esc(a.title)}</h1></div></section>`;
+  const body = `<div class="wrap"><div class="prose" lang="ru">${articleBlocks(text).map(blockHtml).join('')}</div></div>`;
+  const pdf = isHttps(x.pdfUrl) ? x.pdfUrl.trim() : '';
+  const acts = `<a class="btn" href="${issuePath(x.n)}">${esc(t('wholeIssue', x.n))}</a>` + (pdf ? `<a class="btn btn-o" href="${readPath(x.n)}">${esc(t('readPdf'))}</a>${ext(pdf, esc(t('pdf')), 'btn-t')}` : '');
+  const end = `<section class="art-end"><div class="wrap"><p class="meta">${esc(t('fromIssue', x.n, T(x)))}</p><div class="acts">${acts}</div></div></section>`;
+  const prev = arts[j - 1], next = arts[j + 1];
+  const pn = (y, label) => (y ? `<a class="pn-a" href="${articlePath(x.n, y.slug)}"><span><small>${esc(label)}</small><b lang="ru">${esc(y.title)}</b></span></a>` : '');
+  const nav = prev || next ? `<nav class="pn pn-art" aria-label="${esc(t('otherArts'))}"><div class="wrap"><div class="pn-l">${pn(prev, t('prevArt'))}${pn(next, t('nextArt'))}</div></div></nav>` : '';
+  setHtml(mainEl(), hero + body + end + nav);
+  return t('tArticle', x.n, a.title);
 }
 
 async function vAbout(r, stale) {
@@ -759,7 +836,7 @@ async function vNotFound() {
   return t('tNotFound');
 }
 
-const VIEWS = { home: vHome, issues: vIssues, issue: vIssue, about: vAbout, notfound: vNotFound };
+const VIEWS = { home: vHome, issues: vIssues, issue: vIssue, article: vArticle, about: vAbout, notfound: vNotFound };
 
 /* ---------------- объявление ---------------- */
 const annKey = (a) => 'triton_ann_closed_' + [a.from, a.until, str(a.ru?.title)].join('|');
@@ -879,6 +956,7 @@ function parseRoute(path) {
   if (/^\/issues\/?$/.test(p)) return { name: 'issues' };
   if ((m = /^\/issues\/(\d{1,4})\/?$/.exec(p))) return { name: 'issue', n: +m[1] };
   if ((m = /^\/issues\/(\d{1,4})\/read\/?$/.exec(p))) return { name: 'issue', n: +m[1], read: true };
+  if ((m = /^\/issues\/(\d{1,4})\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(p))) return { name: 'article', n: +m[1], slug: m[2] };
   if (/^\/about\/?$/.test(p)) return { name: 'about' };
   if (/^\/admin\/?$/.test(p)) return { name: 'admin' };
   return { name: 'notfound' };
@@ -896,7 +974,7 @@ async function render(opts = {}) {
   const token = ++renderToken;
   renderedPS = location.pathname + location.search;
   const r = parseRoute(location.pathname);
-  const key = r.name === 'issue' ? 'issue:' + r.n : r.name;
+  const key = r.name === 'issue' ? 'issue:' + r.n : r.name === 'article' ? `article:${r.n}:${r.slug}` : r.name;
   // refresh: перерисовка после ответа базы. Адрес тот же: меню, шапку и открытую читалку не трогаем.
   const refresh = !!opts.refresh;
   if (!refresh) toggleMenu(false);
