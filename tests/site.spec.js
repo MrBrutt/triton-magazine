@@ -174,7 +174,7 @@ test('о журнале: история по годам, редакция, ка�
   await expect(page.locator('.yr h3')).toHaveText([...YEARS].reverse().map(String));
   await expect(page.locator('.yr a')).toHaveCount(N);
   await expect(page.locator('.person')).toContainText(['Главный редакторУмар Гаджикулиев']);
-  await expect(page.locator('#join a[href="https://t.me/god_fa1her"]')).toBeVisible();
+  await expect(page.locator('#join a[href="https://t.me/mrbrutt"]')).toBeVisible();
 });
 
 test('404.html не показывает «Страница не найдена» на адресах номера, пока app.js не загрузился', async ({ page }) => {

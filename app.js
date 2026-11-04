@@ -23,7 +23,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '859169446483',
   appId: '1:859169446483:web:39b308366df7e3eb9c04a6',
 };
-const TG_URL = 'https://t.me/god_fa1her';
+const TG_URL = 'https://t.me/mrbrutt';
 
 /* Цвета шапки. Админка предлагает только их. */
 const PALETTE = [
@@ -140,7 +140,7 @@ const I = {
     aboutH: 'О журнале',
     aboutShort: (n) => `«Тритон» делают студенты Международной гимназии Сколково. Первый номер вышел в октябре 2021 года, с тех пор ${outRu(n)} ${wordsRu(n)}. В номерах интервью, рассказы, исследования, рисунки и фотографии студентов.`,
     joinH: 'Как попасть в редакцию',
-    joinText: 'Редакция ищет авторов, иллюстраторов, фотографов и верстальщиков. Напишите в Telegram @god_fa1her: расскажите о себе и пришлите пример работы.',
+    joinText: 'Редакция ищет авторов, иллюстраторов, фотографов и верстальщиков. Напишите в Telegram @mrbrutt: расскажите о себе и пришлите пример работы.',
     joinBtn: 'Написать в редакцию',
     footer: (y) => `Журнал студентов Международной гимназии Сколково, 2021–${y}`, editors: 'Вход для редакции',
     filtersLabel: 'Поиск и фильтр', searchLabel: 'Поиск по выпускам', searchPh: 'Название, номер или год',
@@ -185,7 +185,7 @@ const I = {
     aboutH: 'About the magazine',
     aboutShort: (n) => `Triton is made by students of the International Gymnasium Skolkovo. Since the first issue in October 2021, ${issuesEn(n)} ${n === 1 ? 'has' : 'have'} come out. Each issue has interviews, stories, research, drawings and photos by students.`,
     joinH: 'Join the team',
-    joinText: 'The editors are looking for writers, illustrators, photographers and layout designers. Message @god_fa1her on Telegram: tell us about yourself and send a sample of your work.',
+    joinText: 'The editors are looking for writers, illustrators, photographers and layout designers. Message @mrbrutt on Telegram: tell us about yourself and send a sample of your work.',
     joinBtn: 'Message the editors',
     footer: (y) => `A magazine by students of the International Gymnasium Skolkovo, 2021–${y}`, editors: 'Editors’ login',
     filtersLabel: 'Search and filter', searchLabel: 'Search issues', searchPh: 'Title, number or year',
